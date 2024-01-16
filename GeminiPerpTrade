@@ -533,7 +533,8 @@ def StartTrading(symbol):
         Pair =   config.get(ConfigKey, 'Pair')
         AllowTrading =   config.get(ConfigKey, 'AllowTrading')
         AllowTrailing =   config.get(ConfigKey, 'AllowTrailing')
-        TrailPriceVal =   config.get(ConfigKey, 'TrailPrice')
+        TrailPriceVal =   float(config.get(ConfigKey, 'TrailPrice'))
+        TrailStartAfterPerc =   float(config.get(ConfigKey, 'TrailStartAfterPerc'))
       
         LongEntryLB = float(config.get(ConfigKey, 'LongEntry'))
         LongEntryUB = LongEntryLB*(1+BuyRange)
@@ -575,10 +576,7 @@ def StartTrading(symbol):
                     OpenTradeQuantity = float(filtered_dfOP["quantity"].values[0])
                     unrealised_pnl=round(float(filtered_dfOP["unrealised_pnl"].values[0]),0)
                     print("\n\naverage_cost, OpenTradeQuantity",   average_cost ,OpenTradeQuantity)
-                    print("average_cost   current_price*(1-StopLossPerc),current_price*(1+StopLossPerc) :\n")
-                    print(average_cost  , current_price*(1-StopLossPerc),current_price*(1+StopLossPerc))
- 
-   
+               
                     try:
                         file_path = symbol+'TrailPrice.ini'
                         file_path_obj = Path(file_path)
@@ -595,22 +593,35 @@ def StartTrading(symbol):
                     if OpenTradeQuantity>0:# For Closing Buy Position
                        CloseSide="sell" 
                        Updown=correcion
-                       if AllowTrailing=="Y":
+                       if AllowTrailing=="Y" and current_price/average_cost>(1+TrailStartAfterPerc):
                            TrailPrice= max(TrailPrice,current_price,average_cost)
+                           
+                           
+                       TrailPriceStopLoss=TrailPrice*(1-StopLossPerc)    
+                       if TrailPriceVal>0 and TrailPriceVal>average_cost  : 
+                          TrailPriceStopLoss= TrailPriceVal 
                         
-                       CanClosePosition=  (TrailPrice*(1-StopLossPerc) > current_price or current_price/average_cost>TargetProftPerc)
+                       CanClosePosition=  ( TrailPriceStopLoss > current_price or current_price/average_cost>TargetProftPerc)
                         
                     elif OpenTradeQuantity<0: #For Closing Sell Position
                        CloseSide="buy"
                        Updown=-correcion
-                       if AllowTrailing=="Y":
-                           TrailPrice= min(TrailPrice,current_price,average_cost) 
+                       if AllowTrailing=="Y"  and average_cost/current_price>(1+TrailStartAfterPerc):
+                           TrailPrice= min(TrailPrice,current_price,average_cost)
                        
-                       CanClosePosition= (TrailPrice*(1+StopLossPerc) < current_price or average_cost/current_price>TargetProftPerc )
+                       TrailPriceStopLoss=TrailPrice*(1+StopLossPerc)    
+                       if TrailPriceVal>0 and TrailPriceVal<average_cost :
+                          TrailPriceStopLoss= TrailPriceVal 
+                       
+                       CanClosePosition= (TrailPriceStopLoss < current_price or average_cost/current_price>TargetProftPerc )
           
-            print("\n\n\n ,CanClosePosition TrailPrice, TrailPrice: ",CanClosePosition,TrailPrice, TrailPrice*(1-StopLossPerc) ,TrailPrice*(1+StopLossPerc))
+            print("\n\n\n ,CanClosePosition TrailPriceVal, TrailPriceStopLoss: ",CanClosePosition,TrailPriceVal, TrailPriceStopLoss)
             #Write Back TrailPrice
             print("========================data_to_write==========================================")
+            if OpenTradeQuantity==0:
+                print("test")
+                TrailPrice=current_price
+
             data_to_write(TrailPrice,symbol)     
             
             try: 
@@ -643,7 +654,7 @@ def StartTrading(symbol):
                     df = RequestType("NO",Symbol=symbol,Qty= Qty,ClientOrderID=ClientOrderID,
                                         orderPrice=round(current_price * correcion_factor, 0),
                                          OpType="FC",BuyOrSell=buysellind)
-                 
+                   
                     print("\nNew {buysellind} Order Response:", df)  
                     
             except (ValueError, KeyError, IndexError) as e:
@@ -678,21 +689,11 @@ def trading_thread():
         except Exception as e:
             print(f"An exception occurred: {e}")
         
+
 # sleep for 30 Seconds
 #print(getYahooData('ETH-USD', '5m', '3d', MAPeriod=10))
 #trading_thread()        
 print("Initiated....")
-trading_thread()
-
-
-
-########################################################################################################################
-
-
-
-
-
-
 
 #df=GetMAVal('ethusd', MAPerid=180,period='1m')
 #last_row = df.iloc[-1]
@@ -700,7 +701,9 @@ trading_thread()
 #print(last_row)        
 #print(read_price_setup_from_csv("ethgusdperp"))
 #print("************ BTCGUSDPERP *******************")
-#StartTrading("ethgusdperp")
-#StartTrading("btcgusdperp")
+StartTrading("ethgusdperp")
+StartTrading("btcgusdperp")
 #plot(df)
 #print(GetMAVal("ethgusdperp", MAPerid=10))
+dfOP = RequestType("OP")
+print(dfOP)
