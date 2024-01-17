@@ -535,7 +535,8 @@ def StartTrading(symbol):
         AllowTrailing =   config.get(ConfigKey, 'AllowTrailing')
         TrailPriceVal =   float(config.get(ConfigKey, 'TrailPrice'))
         TrailStartAfterPerc =   float(config.get(ConfigKey, 'TrailStartAfterPerc'))
-      
+        #HardStopLoss = float(config.get(ConfigKey, 'HardStopLoss'))
+        
         LongEntryLB = float(config.get(ConfigKey, 'LongEntry'))
         LongEntryUB = LongEntryLB*(1+BuyRange)
         
@@ -555,6 +556,7 @@ def StartTrading(symbol):
             OpenTradeQuantity=0
             CloseSide=""
             CanClosePosition=False
+            TrailPriceStopLoss=0
             
             current_price = getMidPrice(Pair)  
             df=GetMAVal(Pair, MAPerid=90,period='5m',PriceBand=BuyRange)
@@ -598,9 +600,10 @@ def StartTrading(symbol):
                            
                            
                        TrailPriceStopLoss=TrailPrice*(1-StopLossPerc)    
-                       if TrailPriceVal>0 and TrailPriceVal>average_cost  : 
+                       if TrailPriceVal>0 :# and TrailPriceVal>average_cost  : 
                           TrailPriceStopLoss= TrailPriceVal 
-                        
+                          TrailPrice=average_cost
+                           
                        CanClosePosition=  ( TrailPriceStopLoss > current_price or current_price/average_cost>TargetProftPerc)
                         
                     elif OpenTradeQuantity<0: #For Closing Sell Position
@@ -610,16 +613,16 @@ def StartTrading(symbol):
                            TrailPrice= min(TrailPrice,current_price,average_cost)
                        
                        TrailPriceStopLoss=TrailPrice*(1+StopLossPerc)    
-                       if TrailPriceVal>0 and TrailPriceVal<average_cost :
+                       if TrailPriceVal>0 : #and TrailPriceVal<average_cost :
                           TrailPriceStopLoss= TrailPriceVal 
-                       
+                          TrailPrice=average_cost
+                           
                        CanClosePosition= (TrailPriceStopLoss < current_price or average_cost/current_price>TargetProftPerc )
           
-            print("\n\n\n ,CanClosePosition TrailPriceVal, TrailPriceStopLoss: ",CanClosePosition,TrailPriceVal, TrailPriceStopLoss)
+            print("\n\n\n ,CanClosePosition,average_cost TrailPriceVal, TrailPriceStopLoss: ",CanClosePosition,average_cost,TrailPriceVal, TrailPriceStopLoss)
             #Write Back TrailPrice
             print("========================data_to_write==========================================")
             if OpenTradeQuantity==0:
-                print("test")
                 TrailPrice=current_price
 
             data_to_write(TrailPrice,symbol)     
@@ -633,13 +636,13 @@ def StartTrading(symbol):
                         
                     print("\nClose Order Processed\n")
                     mark_price = round(getMidPrice(Pair), 0)
-                    
+                    '''
                     data = RequestType("NO",Symbol=symbol,Qty=abs(OpenTradeQuantity),ClientOrderID=ClientOrderID, 
                                         orderPrice=round(mark_price*(1-Updown),0) ,
                                         OpType="FC",BuyOrSell=CloseSide)
                     
                     print("\nClose Position Step2:", data)
-                    
+                    '''
                 
                 if  (isBuyCondMatch or  isSellCondMatch ) and OpenTradeQuantity==0 and AllowTrading=="Y"  :
                     print("========================Open New Position==========================================")
@@ -650,13 +653,13 @@ def StartTrading(symbol):
                     if isSellCondMatch: 
                         buysellind ="sell"
                         correcion_factor = 1 - correcion
-                    
+                    '''
                     df = RequestType("NO",Symbol=symbol,Qty= Qty,ClientOrderID=ClientOrderID,
                                         orderPrice=round(current_price * correcion_factor, 0),
                                          OpType="FC",BuyOrSell=buysellind)
                    
                     print("\nNew {buysellind} Order Response:", df)  
-                    
+                    '''
             except (ValueError, KeyError, IndexError) as e:
                 # Handle exceptions related to value conversion, key access, or index out of range
                 print(f"Error in opening positon: {e}")
