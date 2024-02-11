@@ -19,41 +19,13 @@ from bs4 import BeautifulSoup
 import json
 import os
 from pathlib import Path
+#import schedule
 
 
-        
-def read_gist():
-    filename = "SymbolSetup.ini"
-    gist_url = 'https://gist.github.com/example_user/example_gist'
-    try:
-        if(can_rewrite(filename)==1):
-            # Extract Gist ID from the URL
-            gist_id = gist_url.split('/')[-1]
     
-            # Construct the raw URL for the Gist content
-            raw_url = f'https://gist.github.com/jainkgaurav/d09291db7a4135100163c31c490eb1d1/raw/'
-    
-            # Make a GET request to the raw URL
-            response = requests.get(raw_url)
-    
-            # Check if the request was successful (status code 200)
-            if response.status_code == 200:
-                # Print or return the content
-                content = response.text
-                
-                with open(filename, "w") as file:
-                    file.write(content)
-                print(content)
-            else:
-                print(f"Failed to retrieve Gist content. Status code: {response.status_code}")
-
-    except Exception as e:
-        print(f"Error: {e}")
-
-        
 def GetGitHubPriceSetupFile():
-    file_content=""
-    url = "https://raw.githubusercontent.com/jainkgaurav/MyRepo/main/PriceSetup.ini"
+    file_content=''
+    url = 'https://raw.githubusercontent.com/jainkgaurav/MyRepo/main/PriceSetup.ini'
     response = requests.get(url)
     if response.status_code == 200:
         # Content of the file
@@ -61,16 +33,16 @@ def GetGitHubPriceSetupFile():
     return file_content
 
 def ProcessPriceSetupFileToLocal():
-    filename = "SymbolSetup.ini"
+    filename = 'SymbolSetup.ini'
     try:
         if(can_rewrite(filename)==1):
             content = GetGitHubPriceSetupFile()
             if len(content)>0:
-                with open(filename, "w") as file:
+                with open(filename, 'w') as file:
                      file.write(content)
-                     print(content)
+                     #write_to_log(content)
     except Exception as e:
-        print(f"Error: {e}")
+        write_to_log(f'Error: {e}')
         
 def can_rewrite(file_path):
     AllowUpdate=0
@@ -82,99 +54,61 @@ def can_rewrite(file_path):
         # Calculate the time difference in seconds
         time_difference = current_time - last_modified_timestamp
         # Check if the time difference is more than 1 hour (3600 seconds)
-        if time_difference > 180:
+        if time_difference > 60:
            AllowUpdate=1
     except Exception as e:
-        print(f"Error: {e}")
+        write_to_log(f'Error: {e}')
     return AllowUpdate
 
-
+def data_to_write(content,symbol,filename):
+    filename = filename+symbol+'.ini'
+    with open(filename, 'w') as file:
+        file.write('['+symbol+']\n')
+        file.write(symbol+'='+str(content))
 
 def data_to_write(content,symbol):
-    filename = symbol+"TrailPrice.ini"
-    with open(filename, "w") as file:
-        file.write("["+symbol+"]\n")
-        file.write(symbol+"="+str(content))
+    filename = symbol+'TrailPrice.ini'
+    with open(filename, 'w') as file:
+        file.write('['+symbol+']\n')
+        file.write(symbol+'='+str(content))
 
+
+def write_to_log(*args):
+    log_file_path = 'LogReport.log'
+    max_file_size_kb = 10000
+
+    current_time = datetime.datetime.now().strftime('%Y-%m-%d %H:%M:%S')
+    log_entry = f'{current_time} - {" ".join(map(str, args))}\n'
+
+    # Check file size
+    if os.path.exists(log_file_path) and os.path.getsize(log_file_path) > max_file_size_kb * 1024:
+        # If file size exceeds the threshold, create a new log file and delete the old one
+        create_new_log(log_file_path)
+    
+    # Open the log file in append mode
+    with open(log_file_path, 'a') as log_file:
+        log_file.write(log_entry)
+
+
+def create_new_log(old_log_path):
+    # Create a new log file with a timestamp in the filename
+    new_log_path = f'example_log_{datetime.datetime.now().strftime("%Y%m%d%H%M%S")}.txt'
+    os.rename(old_log_path, new_log_path)
+    os.remove(new_log_path)
+    
 def remove_file(symbol):
     # Check if the file exists before attempting to remove it
-    filename = symbol+"TrailPrice.ini"
+    filename = symbol+'TrailPrice.ini'
     if os.path.exists(filename):
         os.remove(filename)
   
 
-def get_input_element_value(url, class_name, input_type):
-    try:
-        # Fetch HTML content from the specified URL
-        response = requests.get(url)
-        response.raise_for_status()
-
-        # Parse HTML content with BeautifulSoup
-        soup = BeautifulSoup(response.content, 'html.parser')
-
-        # Find the <input> element with the specified class and type
-        input_element = soup.find('input', {'class': class_name, 'type': input_type})
-
-        # Extract the value attribute from the <input> element
-        if input_element:
-            value_attribute = input_element.get('value')
-            return value_attribute
-        else:
-            print(f"No <input> element with class '{class_name}' and type '{input_type}' found.")
-            return None
-
-    except requests.exceptions.RequestException as e:
-        print(f"Error: {e}")
-        return None
-
-def GetPriceRangeOnline(symbol):
-    # Replace the URL with the target URL, 'code-to-copy' with the desired class name,
-    # and 'hidden' with the desired input type
-    target_url = "https://ideone.com/NZb2Fi"
-    class_name = "code-to-copy"
-    input_type = "hidden"
-    
-    # Get the value attribute of the <input> element
-    value_attribute = get_input_element_value(target_url, class_name, input_type)
-    price=0
-    # Print the value attribute
-    if value_attribute:
-        print("Value attribute of <input> element:")
-        print(value_attribute)
-    
-        # Parse the value attribute into a dictionary
-        try:
-            data = json.loads(value_attribute)
-            print("Parsed dictionary:")
-            print(data)
-            # Fetch values by key
-            price
-            if symbol=="ethgusdperp":
-                price = data.get('ethusd')
-            
-            if symbol=="btcgusdperp":
-                price = data.get('btcusd')
-            
-            btcusd_value = data.get('btcusd')
-            sol_value = data.get('SOL')
-            
-            # Print the fetched values
-            print(f'ETH/USD value: {ethusd_value}')
-            print(f'BTC/USD value: {btcusd_value}')
-        except json.JSONDecodeError as e:
-            print(f"Error decoding JSON: {e}")
-            price=0
-    else:
-        print("Failed to retrieve value attribute.")
-        
-        return price
-        
 # Function to generate a new nonce
 def generate_nonce():
-    #nonce = f"{int(time.time()) * 1000001 + int(time.perf_counter() * 1000001)}"
+    #nonce = f'{int(time.time()) * 1000001 + int(time.perf_counter() * 1000001)}'
     t = datetime.datetime.now()
     nonce = time.time()
-    #print(nonce)
+    #write_to_log(nonce)
     return nonce  # Convert current time to milliseconds
 
 def read_config(filename='GeminiConfig.ini'):
@@ -187,89 +121,89 @@ config = read_config()
 
 def MyPositions():
     payload_nounce = generate_nonce()
-    payload = {"request": "/v1/balances", "nonce": payload_nounce}
+    payload = {'request': '/v1/balances', 'nonce': payload_nounce}
     return payload
 
 
 def MyTrades():
     payload_nounce = generate_nonce()
-    payload = {"request": "/v1/mytrades", "nonce": payload_nounce}
+    payload = {'request': '/v1/mytrades', 'nonce': payload_nounce}
     return payload
 
-def NewOrder(SymbolScript="",Qty=0.00,ClientOrderID="", orderPrice=0, OrderType="LMT", BuyOrSell=""):
+def NewOrder(SymbolScript='',Qty=0.00,ClientOrderID='', orderPrice=0, OrderType='LMT', BuyOrSell=''):
     payload_nounce = generate_nonce()
-    #"client_order_id":ClientOrderID,
+    #'client_order_id':ClientOrderID,
     match OrderType:
-        case "MC":
-                OptionType="maker-or-cancel"
-        case "IC":
-                OptionType="immediate-or-cancel"
-        case "FC":    
-                OptionType="fill-or-kill"
+        case 'MC':
+                OptionType='maker-or-cancel'
+        case 'IC':
+                OptionType='immediate-or-cancel'
+        case 'FC':    
+                OptionType='fill-or-kill'
         
-    if OrderType  == "LMT":
+    if OrderType  == 'LMT':
         payload = {
-                "request": "/v1/order/new",
-                "nonce": payload_nounce,
-                "symbol": SymbolScript,
-                "amount": str(Qty),
-                "price": str(orderPrice),
-                "side": BuyOrSell,
-                "type": "exchange limit"
+                'request': '/v1/order/new',
+                'nonce': payload_nounce,
+                'symbol': SymbolScript,
+                'amount': str(Qty),
+                'price': str(orderPrice),
+                'side': BuyOrSell,
+                'type': 'exchange limit'
                   }
-    elif OrderType  == "SL":
+    elif OrderType  == 'SL':
         payload = {
-                "request": "/v1/order/new",
-                "nonce": payload_nounce,
-                "symbol": SymbolScript,
-                "amount": str(Qty),
-                "price": str(orderPrice),
-                "side": BuyOrSell,
-                "type": "exchange stop limit"
+                'request': '/v1/order/new',
+                'nonce': payload_nounce,
+                'symbol': SymbolScript,
+                'amount': str(Qty),
+                'price': str(orderPrice),
+                'side': BuyOrSell,
+                'type': 'exchange stop limit'
                   }   
     else:
         payload = {
-                "request": "/v1/order/new",
-                "client_order_id":ClientOrderID,
-                "nonce": payload_nounce,
-                "symbol": SymbolScript,
-                "amount": str(Qty),
-                "price": str(orderPrice),
-                "side": BuyOrSell,
-                "type": "exchange limit",
-                "options" : [OptionType]
+                'request': '/v1/order/new',
+                'client_order_id':ClientOrderID,
+                'nonce': payload_nounce,
+                'symbol': SymbolScript,
+                'amount': str(Qty),
+                'price': str(orderPrice),
+                'side': BuyOrSell,
+                'type': 'exchange limit',
+                'options' : [OptionType]
                   }
         
     return payload
 
 
-def Auth(payload,isPrimary="N"):
-    if isPrimary=="Y":
+def Auth(payload,isPrimary='N'):
+    if isPrimary=='Y':
         gemini_api_key = config.get('GeminiAPI', 'PA_gemini_api_key')
         gemini_api_secret = config.get('GeminiAPI', 'PA_gemini_api_secret').encode()
     else:
         gemini_api_key = config.get('GeminiAPI', 'gemini_api_key')
         gemini_api_secret = config.get('GeminiAPI', 'gemini_api_secret').encode()
  
-    payload["nonce"] = generate_nonce()
+    payload['nonce'] = generate_nonce()
    
     encoded_payload = json.dumps(payload).encode()
     b64 = base64.b64encode(encoded_payload)
     # Ensure gemini_api_secret is represented as bytes
     signature = hmac.new(gemini_api_secret, b64, hashlib.sha384).hexdigest()
     request_headers = {
-        'Content-Type': "text/plain",
-        'Content-Length': "0",
+        'Content-Type': 'text/plain',
+        'Content-Length': '0',
         'X-GEMINI-APIKEY': gemini_api_key,
         'X-GEMINI-PAYLOAD': b64.decode(),
         'X-GEMINI-SIGNATURE': signature,
-        'Cache-Control': "no-cache"
+        'Cache-Control': 'no-cache'
     }
     return request_headers
 
 def getScriptPrice(symbol):
-    base_url = "https://api.gemini.com/v1"
-    response = requests.get(base_url + "/pubticker/"+symbol)
+    base_url = 'https://api.gemini.com/v1'
+    response = requests.get(base_url + '/pubticker/'+symbol)
     data = response.json()
     df = pd.DataFrame(data)
     return df
@@ -281,7 +215,7 @@ def getMidPrice(symbol):
     
 def GetMarkPriceOfETH():
     #mark_price
-    response = RequestType("OP")
+    response = RequestType('OP')
     data= response.json()
     df = pd.DataFrame(data)
     return df
@@ -289,17 +223,26 @@ def GetMarkPriceOfETH():
 
 def getOpenOrders():
     payload_nounce = generate_nonce()
-    payload = { "nonce": payload_nounce,"request": "/v1/orders"}
+    payload = { 'nonce': payload_nounce,'request': '/v1/orders'}
     return payload
 
 def OpenPositions():
     payload_nounce = generate_nonce()
-    payload = {  "request": "/v1/positions", "nonce": payload_nounce,      }
+    payload = {  'request': '/v1/positions', 'nonce': payload_nounce,      }
     return payload
 
 def CancelAllOrder():
     payload_nounce = generate_nonce()
-    payload = {  "request": "/v1/order/cancel/all", "nonce": payload_nounce    }
+    payload = {  'request': '/v1/order/cancel/all', 'nonce': payload_nounce    }
+    return payload
+
+def CancelOrder(order_id):
+    payload_nounce = generate_nonce()
+    payload = {
+    "nonce": "payload_nounce",
+    "order_id": order_id,
+    "request": "/v1/order/cancel"
+    }
     return payload
 
 
@@ -308,11 +251,11 @@ def isSymbolPresent(df, symbol):
     return symbol.lower() in df['symbol'].str.lower().values
     
 def hasOpenOrders(symbol):
-    df = RequestType("OO")  # "OO" stands for Open Orders
+    df = RequestType('OO')  # 'OO' stands for Open Orders
     return int('symbol' in df.columns and df[df['symbol'] == symbol].shape[0] > 0)
 
 def hasOpenPosition(symbol):
-    df = RequestType("OP")  # "OP" stands for Open Positions
+    df = RequestType('OP')  # 'OP' stands for Open Positions
     return int('symbol' in df.columns and df[df['symbol'] == symbol].shape[0] > 0)
    
 
@@ -321,52 +264,56 @@ def CloseAllOrders():
 
     if open_orders:
         for order in open_orders:
-            order_id = order.get("order_id", None)
+            order_id = order.get('order_id', None)
             if order_id:
                 # Cancel the open order
-                cancel_response = RequestType("CO", order_id)
-                print(f"Canceled order {order_id}: {cancel_response.json()}")
+                cancel_response = RequestType('CO', order_id)
+                write_to_log(f'Canceled order {order_id}: {cancel_response.json()}')
     else:
-        print("No open orders to close.")
+        write_to_log('No open orders to close.')
 
 
 
 
 # Add other functions as needed
-def RequestType(strType, Symbol="",Qty=0.00,ClientOrderID="", orderPrice=0, OpType="", BuyOrSell=""):
+def RequestType(strType, Symbol='',Qty=0.00,ClientOrderID='', orderPrice=0, OpType='', BuyOrSell='',OrderID=0):
     match strType:
-        case "Bal":
-            url = "https://api.gemini.com/v1/balances"
+        case 'Bal':
+            url = 'https://api.gemini.com/v1/balances'
             request_headers=Auth(MyPositions())
             
-        case "MT":
-            url = "https://api.gemini.com/v1/mytrades"
+        case 'MT':
+            url = 'https://api.gemini.com/v1/mytrades'
             request_headers=Auth(MyTrades())
             
-        case "NO":
-            url = "https://api.gemini.com/v1/order/new"
+        case 'NO':
+            url = 'https://api.gemini.com/v1/order/new'
             request_headers=Auth(NewOrder(Symbol,Qty,ClientOrderID, orderPrice, OpType, BuyOrSell))    
 
-        case "OO":
-            print("Checking Open Orders...")
-            url = "https://api.gemini.com/v1/orders"
+        case 'OO':
+            write_to_log('Checking Open Orders...')
+            url = 'https://api.gemini.com/v1/orders'
             request_headers=Auth(getOpenOrders())               
             
         
-        case "OP":
-            url = "https://api.gemini.com/v1/positions"
+        case 'OP':
+            url = 'https://api.gemini.com/v1/positions'
             request_headers=Auth(OpenPositions())        
             
-        case "CO":
-            url = "https://api.gemini.com/v1/order/cancel/all"
-            request_headers=Auth(CancelAllOrder())        
+        case 'CO':
+            url = 'https://api.gemini.com/v1/order/cancel/all'
+            request_headers=Auth(CancelAllOrder())   
+
+        case 'CNCL':
+            url = 'https://api.gemini.com/v1/order/cancel'
+            request_headers=Auth(CancelOrder(OrderID))           
     
-        case _:  print("Please provide correct input fuction")
+        case _:  write_to_log('Please provide correct input fuction')
 
     response = requests.post(url, headers=request_headers)
     data = response.json()
-    print("data : ",data)
-    data
+    #write_to_log('data : ',data)
+    #data
    
     if isinstance(data, (list, dict)):
         # If the data is a list or dictionary, use DataFrame directly
@@ -375,8 +322,8 @@ def RequestType(strType, Symbol="",Qty=0.00,ClientOrderID="", orderPrice=0, OpTy
         # If the data is neither a list nor a dictionary, create a DataFrame with a single column
         df = pd.DataFrame({'data_column': [data]})
 
-    print("Successfully loaded into a DataFrame:")
-    print(df)
+    
+    #write_to_log(df)
     return df
 	
 
@@ -386,9 +333,9 @@ def read_price_setup_from_csv(symbol):
     return price_ranges
  
 
-def GetMAVal(ConfigKey, MAPerid=100,period='5m',PriceBand=.006):
-    base_url = "https://api.gemini.com/v2"
-    response = requests.get(base_url + "/candles/"+ConfigKey+"/"+period)
+def GetMAVal(ConfigKey, MAPerid=100,period='5m',PriceBand=.0015):
+    base_url = 'https://api.gemini.com/v2'
+    response = requests.get(base_url + '/candles/'+ConfigKey+'/'+period)
     data = response.json()
     df=pd.DataFrame(data)
     # Create a dictionary to map numerical column names to labels
@@ -402,8 +349,9 @@ def GetMAVal(ConfigKey, MAPerid=100,period='5m',PriceBand=.006):
     df.set_index('timestamp', inplace=True)
     pd.set_option('display.float_format', '{:.2f}'.format)
     dfHA=CandleLogic(df,MAPerid,PriceBand)
+    
     last_row = df.iloc[-1]
-    #print(last_row)
+    #write_to_log(last_row)
     #return last_row
     
     return dfHA
@@ -416,18 +364,14 @@ def CandleLogic(df,MAPeriod,PriceBand):
     df['HA_Close']  = (df['Open'] + df['Low'] + df['Close'] + df['High']) / 4
     df['HA_High']  = df[['High', 'Open', 'Close']].max(axis=1)
     df['HA_Low']  = df[['Low', 'Open', 'Close']].min(axis=1)
- 
-    df['MA20'] = df["HA_Close"].rolling(window=20).mean()
-    df['MA'] = df["HA_Close"].rolling(window=MAPeriod).mean()
-    df['UpperMA'] = df['MA']*(1+PriceBand)
-    df['LowerMA'] = df['MA']*(1-PriceBand)
-    
+    df['HighRange'] = df['HA_High'].rolling(window=300).mean()
+    df['LowRange'] = df['HA_Low'].rolling(window=300).mean()
+    df["MAHLRange"]=(df['HighRange']-df['LowRange'])
+    df["MAHLRatio"]=1-(df['HighRange']/df['LowRange'])
+    df['MA'] = df['HA_Close'].rolling(window=MAPeriod).mean()
+    df['UpperMA'] = df['MA']+df['MAHLRange'] 
+    df['LowerMA'] = df['MA']-df['MAHLRange'] 
     df['IsGreen'] = np.where(df['HA_Open'] < df['HA_Close'], 'G', 'R') 
-    
-    # Calculate lowest low for each rolling window
-    df['LongEntry'] = df['HA_High'].shift(shift).rolling(window=MAPeriod).min()
-    #df['LowerRange'] = df['MinHigh'].rolling(window=MAPeriod).max()
-    #df['UpperRange'] =df['LowerRange'] * (1+BuyRange)
     df_cleaned = df.dropna()
     return df_cleaned
  
@@ -436,7 +380,7 @@ def get_symbol_data(symbol='BTC-USD', interval='15m', period='3d',MAPeriod=20 ,s
     heikin_ashi_df= getYahooData(symbol,interval,period,MAPeriod,shift)
     last_row = heikin_ashi_df.iloc[-1]
     #plotChar(heikin_ashi_df)
-    print(last_row)
+    write_to_log(last_row)
     return last_row
 
 def plot(df):
@@ -445,9 +389,10 @@ def plot(df):
     # Plotting OHLC data
     fig, ax = plt.subplots(figsize=(10, 6))
     
-    ax.plot(df['HA_Close'], label='HA_Close', marker='',linewidth=1)
-    ax.plot(df['Close'], label='Close', marker='',linewidth=1)
+    ax.plot(df['LowerMA'], label='LowerMA', marker='',linewidth=1)
+    ax.plot(df['UpperMA'], label='UpperMA', marker='',linewidth=1)
     ax.plot(df['MA'], label='MA', marker='',linewidth=1)
+    ax.plot(df['Close'], label='Close', marker='',linewidth=1)
     
     ax.set_title('OHLC Chart')
     ax.set_xlabel('Index')
@@ -474,243 +419,389 @@ def getYahooData(symbol, interval, period, MAPeriod=50,shift=10,BuyRange=.002):
     return dfHA
 
 
-#dfYoo=getYahooData(YahooCode, '5m', '2d', MAPeriod=MAPeriod,shift=shift,BuyRange=BuyRange)
-
-#dfPriceRange = read_price_setup_from_csv(symbol)
-#df=getYahooData(YahooCode, '5m', '4d', MAPeriod=10)
-#print(last_row)
-#CandleColor=last_row['IsGreen']
-
-def calculate_trailing_stop(MktPrice, PurcharsePrice, TrailPrice,Qty):
-    if MktPrice >= average_cost and Qty > 0:
-        TrailPrice = max(TrailPrice, PurchasePrice, MktPrice)
-    elif MktPrice < average_cost and Qty < 0:    
-        TrailPrice = min(TrailPrice, PurchasePrice, MktPrice)
-    elif MktPrice < average_cost and Qty > 0:
-        TrailPrice = max(PurchasePrice, TrailPrice)
-    elif MktPrice > average_cost and Qty < 0:
-        TrailPrice = min(PurchasePrice, TrailPrice)
-    else:
-        TrailPrice = PurchasePrice
-
-                        
-    if symbol=="ethgusdperp":
-        #ETCPrice=calculate_trailing_stop(current_price,average_cost,ETCPrice,OpenTradeQuantity)
-        TrailPrice=ETCPrice
-    else:
-        #BTCPrice=calculate_trailing_stop(current_price,average_cost,BTCPrice,OpenTradeQuantity)
-        TrailPrice=BTCPrice
-        
-    return TrailPrice
-
-
-
-def StartTrading(symbol):
-
-    
+def Get_Trailing_Stop(symbol,current_price, average_cost, OpenTradeQuantity,AllowTrailing,StopLossPerc,LongShortExit):
+    TrailPrice=0
+    write_to_log('******Updating Trailing**********')
     try:
-         
-        print("\n\n************ StartTrading *******************")
-        #dfOO = RequestType("OO") 
-        ProcessPriceSetupFileToLocal()
-        #time.sleep(50)
-        ConfigKey=symbol
-        #config = read_config()
-        config = read_config("SymbolSetup.ini")
-        correcion = float(config.get('InitParam', 'Correction'))
-        
-        MAPeriod = int(config.get('InitParam', 'MAPeriod'))
-        shift = int(config.get('InitParam', 'shift'))
-        BuyRange = float(config.get(ConfigKey, 'BuyRange'))
-        
-        StopLossPerc = float(config.get(ConfigKey, 'StopLossPerc'))
-        TargetProftPerc = float(config.get(ConfigKey, 'TargetProftPerc'))
-           
-        Qty = float(config.get(ConfigKey, 'Qty'))
-        InvestAmt = float(config.get(ConfigKey, 'InvestAmt'))
-      
-        ClientOrderID = config.get(ConfigKey, 'ClientOrderID')
-        MaxQty =   float(config.get(ConfigKey, 'MaxQty'))
-        YahooCode =   config.get(ConfigKey, 'YahooCode')
-        Pair =   config.get(ConfigKey, 'Pair')
-        AllowTrading =   config.get(ConfigKey, 'AllowTrading')
-        AllowTrailing =   config.get(ConfigKey, 'AllowTrailing')
-        TrailStartAfterPerc =   float(config.get(ConfigKey, 'TrailStartAfterPerc'))
-        
-        
-        LongEntryLB = float(config.get(ConfigKey, 'LongEntry'))
-        LongEntryUB = LongEntryLB*(1+BuyRange)
-        LongExit = float(config.get(ConfigKey, 'LongExit'))
-        
-        ShortEntryUB = float(config.get(ConfigKey, 'ShortEntry'))
-        ShortEntryLB = ShortEntryUB*(1-BuyRange)
-        ShortExit = float(config.get(ConfigKey, 'ShortExit'))
-        
-        print("LongEntryLB,LongEntryUB,ShortEntryUB,ShortEntryLB")
-        print(LongEntryLB,LongEntryUB,ShortEntryUB,ShortEntryLB)
-        
-        Updown=correcion
-        
-        if 1==1:
-            TrailPrice=0.0
-            IsCloseCondMatch=False
-            unrealised_pnl = 0 
-            average_cost=0
-            OpenTradeQuantity=0
-            CloseSide=""
-            CanClosePosition=False
-            TrailPriceStopLoss=0
-            
-            current_price = getMidPrice(Pair)  
-            df=GetMAVal(Pair, MAPerid=90,period='5m',PriceBand=BuyRange)
-            last_row = df.iloc[-1]
-          
-            isBuyCondMatch =  current_price>LongEntryLB and current_price<LongEntryUB  #and last_row['IsGreen']=='G' 
-            isSellCondMatch = current_price>ShortEntryLB and current_price<ShortEntryUB #and last_row['IsGreen']=='R' 
-            print("Qty : = ",round(InvestAmt/current_price,3))
-        
-            print("\n\n current_price,isBuyCondMatch,isSellCondMatch",current_price,isBuyCondMatch,isSellCondMatch)
-              
-            dfOP = RequestType("OP")    
-            if not dfOP.empty: 
-                 
-               filtered_dfOP = dfOP[dfOP['symbol'] == symbol]
-               print("symbol : ",symbol)
-               if len(filtered_dfOP)>0: #Close Existing Order
-                    print("filtered_dfOP : /n",filtered_dfOP)
-                    average_cost = round(float(filtered_dfOP["average_cost"].values[0]), 2)
-                    OpenTradeQuantity = float(filtered_dfOP["quantity"].values[0])
-                    unrealised_pnl=round(float(filtered_dfOP["unrealised_pnl"].values[0]),0)
-                    print("\n\naverage_cost, OpenTradeQuantity",   average_cost ,OpenTradeQuantity)
-               
-                    try:
-                        file_path = symbol+'TrailPrice.ini'
-                        file_path_obj = Path(file_path)
-                        if file_path_obj.exists():
-                            GetTrailConfig=read_config(filename=file_path)  
-                            TrailPrice= float(GetTrailConfig.get(symbol, symbol))
-                    except (ValueError, KeyError, IndexError) as e:
-                        print(f"Error in Getting Trail price: {e}")
-                        TrailPrice=0
-                       
-                    if TrailPrice==0 or AllowTrailing=="N":
-                        TrailPrice=average_cost
-                    
-                    if OpenTradeQuantity>0:# For Closing Buy Position
-                       CloseSide="sell" 
-                       Updown=correcion
-                       if AllowTrailing=="Y" and current_price/average_cost>(1+TrailStartAfterPerc):
-                           TrailPrice= max(TrailPrice,current_price,average_cost)
-                           
-                           
-                       TrailPriceStopLoss=TrailPrice*(1-StopLossPerc)    
-                       if LongExit>0 and AllowTrailing!="Y" :# and LongExit>average_cost  : 
-                          TrailPriceStopLoss= LongExit 
-                          TrailPrice=average_cost
-                           
-                       CanClosePosition=  ( TrailPriceStopLoss > current_price or current_price/average_cost>TargetProftPerc)
-                        
-                    elif OpenTradeQuantity<0: #For Closing Sell Position
-                       CloseSide="buy"
-                       Updown=-correcion
-                       if AllowTrailing=="Y"  and average_cost/current_price>(1+TrailStartAfterPerc):
-                           TrailPrice= min(TrailPrice,current_price,average_cost)
-                       
-                       TrailPriceStopLoss=TrailPrice*(1+StopLossPerc)    
-                       if ShortExit>0 and AllowTrailing!="Y"  : #and ShortExit<average_cost :
-                          TrailPriceStopLoss= ShortExit 
-                          TrailPrice=average_cost
-                           
-                       CanClosePosition= (TrailPriceStopLoss < current_price or average_cost/current_price>TargetProftPerc )
-          
-            print("\n\n\n ,CanClosePosition,average_cost  TrailPriceStopLoss: ",CanClosePosition,average_cost, TrailPriceStopLoss)
-            #Write Back TrailPrice
-            print("========================data_to_write==========================================")
-            if OpenTradeQuantity==0:
-                TrailPrice=current_price
-
-            data_to_write(TrailPrice,symbol)     
-            
-            try: 
-                
-                if  (CanClosePosition) :
-                    print("========================Close Position==========================================")
-                      
-                    
-                        
-                    print("\nClose Order Processed\n")
-                    mark_price = round(getMidPrice(Pair), 0)
-                    
-                    data = RequestType("NO",Symbol=symbol,Qty=abs(OpenTradeQuantity),ClientOrderID=ClientOrderID, 
-                                        orderPrice=round(mark_price*(1-Updown),0) ,
-                                        OpType="FC",BuyOrSell=CloseSide)
-                    
-                    print("\nClose Position Step2:", data)
-                    
-                
-                if  (isBuyCondMatch or  isSellCondMatch ) and OpenTradeQuantity==0 and AllowTrading=="Y"  :
-                    print("========================Open New Position==========================================")
-                    current_price = getMidPrice(Pair) 
-                    correcion_factor = 1 + correcion
-                    buysellind = "buy"
-                    Qty=round(InvestAmt/current_price,3)
-                    if isSellCondMatch: 
-                        buysellind ="sell"
-                        correcion_factor = 1 - correcion
-                    
-                    df = RequestType("NO",Symbol=symbol,Qty= Qty,ClientOrderID=ClientOrderID,
-                                        orderPrice=round(current_price * correcion_factor, 0),
-                                         OpType="FC",BuyOrSell=buysellind)
-                   
-                    print("\nNew {buysellind} Order Response:", df)  
-                    
-            except (ValueError, KeyError, IndexError) as e:
-                # Handle exceptions related to value conversion, key access, or index out of range
-                print(f"Error in opening positon: {e}")
-                # You can log the error or take appropriate action based on your requirements    
-            
+        file_path = symbol+'TrailPrice.ini'
+        file_path_obj = Path(file_path)
+        if file_path_obj.exists():
+            GetTrailConfig=read_config(filename=file_path)  
+            TrailPrice= float(GetTrailConfig.get(symbol, symbol))
+            write_to_log('******TrailPrice : *',TrailPrice)
     except (ValueError, KeyError, IndexError) as e:
-            # Handle exceptions related to value conversion, key access, or index out of range
-            print(f"Error Start Trading: {e}")
-            # You can log the error or take appropriate action based on your requirements        
-    
+        write_to_log(f'***Error in Getting Trail price: {e}****')
+        TrailPrice=0
  
+       
+    if TrailPrice==0 or AllowTrailing=='N':
+        TrailPrice=average_cost
     
-def trading_thread():
-    print("************ Thread Started *******************")
-    ProcessPriceSetupFileToLocal()
-    while True:
-        try:
-            current_time = datetime.datetime.now()
-            time.sleep(5)
-            print("Current Time:", current_time) 
-            if current_time.second % 20 == 0:
-                dfOP = RequestType("OP")
-            print("************ ETHGUSDPERP *******************")
-            StartTrading("ethgusdperp")
-            time.sleep(5)
-            print("************ BTCGUSDPERP *******************")
-            StartTrading("btcgusdperp")
-            if current_time.minute % 15 == 0:
-                clear_output(wait=True)
-        except Exception as e:
-            print(f"An exception occurred: {e}")
+    if OpenTradeQuantity>0:# For Closing Buy Position
+       if AllowTrailing=='Y' and current_price/average_cost>1:
+           TrailPrice= max(TrailPrice,current_price,average_cost)
+ 
+       TrailPriceStopLoss=TrailPrice*(1-StopLossPerc)    
+       if LongShortExit>0 and AllowTrailing!='Y' :# and LongExit>average_cost  : 
+          TrailPriceStopLoss= LongShortExit 
+          TrailPrice=average_cost
+        
+    elif OpenTradeQuantity<0: #For Closing Sell Position
+       if AllowTrailing=='Y'  and average_cost/current_price>1:
+           TrailPrice= min(TrailPrice,current_price,average_cost)
+ 
+       TrailPriceStopLoss=TrailPrice*(1+StopLossPerc)    
+       if LongShortExit>0 and AllowTrailing!='Y'  : #and ShortExit<average_cost :
+          TrailPriceStopLoss= LongShortExit 
+          TrailPrice=average_cost
+ 
+     
+    data_to_write(TrailPrice,symbol)     
+
+    return TrailPriceStopLoss
+
+
+def GetSetupParam(ConfigKey):
+    '''Read setup parameters from a configuration file and return as a dictionary.'''
+    config = read_config('SymbolSetup.ini')
+    
+    # Create a dictionary to store key-value pairs of setup parameters
+    setup_params = {
+        'correction': float(config.get('InitParam', 'Correction')),
+        'MAPeriod': int(config.get('InitParam', 'MAPeriod')),
+        'shift': int(config.get('InitParam', 'shift')),
+        'InnerRangePerc' : float(config.get('InitParam', 'InnerRangePerc')),
+        'OuterRangePerc' : float(config.get('InitParam', 'OuterRangePerc')),
+        'TradeMethod' : float(config.get('InitParam', 'TradeMethod')),
+        'BuyRange': float(config.get(ConfigKey, 'BuyRange')),
+        'StopLossPerc': float(config.get(ConfigKey, 'StopLossPerc')),
+        'TargetProftPerc': float(config.get(ConfigKey, 'TargetProftPerc')),
+        'Qty': float(config.get(ConfigKey, 'Qty')),
+        'InvestAmt': float(config.get(ConfigKey, 'InvestAmt')),
+        'ClientOrderID': config.get(ConfigKey, 'ClientOrderID'),
+        'Pair': config.get(ConfigKey, 'Pair'),
+        'AllowTrading': config.get(ConfigKey, 'AllowTrading'),
+        'LongExit': float(config.get(ConfigKey, 'LongExit')),
+        'ShortExit': float(config.get(ConfigKey, 'ShortExit')),
+        'AllowTrailing': config.get(ConfigKey, 'AllowTrailing'),
+        'AlgoType': config.get(ConfigKey, 'AlgoType'),
+        'PriceFactor': float(config.get(ConfigKey, 'PriceFactor')),
+        'TrailStartAfterPerc': float(config.get(ConfigKey, 'TrailStartAfterPerc')),
+        'LongEntry' : float(config.get(ConfigKey, 'LongEntry')),
+        'ShortEntry' : float(config.get(ConfigKey, 'ShortEntry')),
+        'DecimalPlace' : int(config.get(ConfigKey, 'DecimalPlace')),
+        'QtyRounding' : int(config.get(ConfigKey, 'QtyRounding'))
+        
+       
+        
+    }
+    
+    return setup_params
+
+def FormatNumber(val):
+    return "{:.9f}".format(val)
+
+def getBuySellCloseSignal(symbol,Timeperiod='15m'):
+    
+    TrailPrice=0.0
+    TrailPriceStopLoss=0
+    isBuyCondMatch=False
+    isSellCondMatch=False
+    LongEntry=0
+    ShortEntry=0
+    LongEntryRangeUp=0
+    ShortEntryRangeDown=0
+    signal=0
+
+    try:
+        write_to_log('************ StartTrading *******************')
+        #dfOO = RequestType('OO') 
+        #write_to_log(dfOO)
+        ProcessPriceSetupFileToLocal()
+        setup_params=GetSetupParam(symbol)
+        current_price = getMidPrice(setup_params['Pair'] )  
+        df=GetMAVal(setup_params['Pair'], MAPerid=setup_params['MAPeriod'],period=Timeperiod,PriceBand=setup_params['BuyRange'])
+
+        last_row = df.iloc[-1]
+        last_row1 = df.iloc[-2]
+        last_row2 = df.iloc[-3]
+
+        write_to_log('Candles : : ',last_row['IsGreen'] ,last_row1['IsGreen'] ,last_row2['IsGreen'] )
         
 
-# sleep for 30 Seconds
-#print(getYahooData('ETH-USD', '5m', '3d', MAPeriod=10))
-#trading_thread()        
-print("Initiated....")
+        TradeMethod=setup_params['TradeMethod']
+        LongEntry = setup_params['LongEntry']
+        ShortEntry =setup_params['ShortEntry']
+        
 
-#df=GetMAVal('ethusd', MAPerid=180,period='1m')
-#last_row = df.iloc[-1]
-#print(df)
-#print(last_row)        
-#print(read_price_setup_from_csv("ethgusdperp"))
-#print("************ BTCGUSDPERP *******************")
-StartTrading("ethgusdperp")
-StartTrading("btcgusdperp")
-#plot(df)
-#print(GetMAVal("ethgusdperp", MAPerid=10))
-dfOP = RequestType("OP")
-print(dfOP)
+        if TradeMethod=="FIX":
+            UpperRang=LongEntry*(1+setup_params['BuyRange'])
+            LowerRange=ShortEntry*(1-setup_params['BuyRange']) 
+            isBuyCondMatch =   ( current_price>last_row["HA_High"]
+                                  and
+                                 current_price<UpperRang
+                               )   
+            isSellCondMatch = ( current_price<last_row["HA_Close"]
+                                and 
+                                current_price>LowerRange
+                              )
+            write_to_log('symbol,current_price,LongEntry,UpperRang,ShortEntry,LowerRange,isBuyCondMatch,isSellCondMatch,TradeMethod')
+            write_to_log(symbol,current_price,LongEntry,UpperRang,ShortEntry,LowerRange,isBuyCondMatch,isSellCondMatch,TradeMethod)
+    
+        elif TradeMethod=="MA":
+            InnerHighRange=last_row["MA"]*(1+setup_params['InnerRangePerc'])
+            InnerLowRange=last_row["MA"]*(1-setup_params['InnerRangePerc']) 
+
+            OuterHighRange=last_row["MA"] *(1+setup_params['OuterRangePerc'])
+            OuterLowRange=last_row["MA"]*(1+setup_params['OuterRangePerc'])
+            
+            write_to_log("MA,InnerHighRange,InnerLowRange,OuterHighRange,OuterLowRange")
+            write_to_log(last_row["MA"],InnerHighRange,InnerLowRange,OuterHighRange,OuterLowRange)
+            IsInMARange=(current_price<InnerHighRange  and current_price>InnerLowRange)
+        
+            isBuyCondMatch =   (    last_row['IsGreen']=="G" 
+                                    and last_row1['IsGreen']=="R" 
+                                    and last_row2['IsGreen']=="R" 
+                                    and current_price>last_row["HA_Close"]
+                                    and current_price<last_row["HA_Close"]*(1+setup_params['BuyRange'])
+                                    and (IsInMARange or current_price<OuterLowRange)
+                                
+                                )   
+
+            isSellCondMatch = (
+                                    last_row['IsGreen']=="R" 
+                                    and last_row1['IsGreen']=="G" 
+                                    and last_row2['IsGreen']=="G" 
+                                    and current_price<last_row["HA_Close"]
+                                    and current_price>last_row["HA_Close"]*(1-setup_params['BuyRange']) 
+                                    and (IsInMARange or current_price>OuterHighRange)
+                                )
+        
+            write_to_log('sysmbol,current_price,LongEntryRangeUp,LongEntry,ShortEntry,ShortEntryRangeDown,isBuyCondMatch,isSellCondMatch,TradeMethod')
+            write_to_log(symbol,current_price,LongEntryRangeUp,LongEntry,ShortEntry,ShortEntryRangeDown,isBuyCondMatch,isSellCondMatch,TradeMethod)
+            #write_to_log("last_row",last_row)
+        
+        if isBuyCondMatch:
+            signal=1
+        if isSellCondMatch:
+            signal=-1    
+
+    except (ValueError, KeyError, IndexError) as e:
+        write_to_log(f'Error in getBuySellCloseSignal  Function : {e}')
+        
+    return signal   
+    
+def OpenCloseTrade(symbol):   
+    if True:
+        ProcessPriceSetupFileToLocal()
+        setup_params=GetSetupParam(symbol)
+
+        Updown=setup_params['correction']
+        TrailPrice=0.0
+        average_cost=0
+        OpenTradeQuantity=0
+        CloseSide=''
+        CanClosePosition=False
+        TrailPriceStopLoss=0
+        mark_price=0.0
+        CanOpenLimitOrders=False
+        notional_value=0
+        LimitOrderPrice=0
+        IsLimitOrderOpen=False
+
+        signal=  getBuySellCloseSignal(symbol,Timeperiod='15m')
+        if signal==0:
+            signal= getBuySellCloseSignal(symbol,Timeperiod='30m')
+            write_to_log(symbol, " :30 minute signal check : ", signal)
+             
+        current_price = getMidPrice(setup_params['Pair'] )  
+        dfOP = RequestType('OP') 
+        write_to_log(dfOP)
+
+        if not dfOP.empty: 
+            filtered_dfOP = dfOP[dfOP['symbol'] == symbol]
+            write_to_log('symbol : ',symbol)
+            if len(filtered_dfOP)>0: #Close Existing Order
+                #write_to_log('filtered_dfOP : /n',filtered_dfOP.iloc[-1])
+                average_cost = float(filtered_dfOP['average_cost'].values[0])
+                OpenTradeQuantity = float(filtered_dfOP['quantity'].values[0])
+                unrealised_pnl=float(filtered_dfOP['unrealised_pnl'].values[0])
+                mark_price=float(filtered_dfOP['mark_price'].values[0])
+                notional_value=abs(float(filtered_dfOP['notional_value'].values[0]))
+
+                write_to_log(" ***Amount Validation",notional_value>setup_params['InvestAmt']*.80)
+                dfOpnOrders = RequestType('OO') 
+                if dfOpnOrders.empty:
+                    if notional_value>setup_params['InvestAmt']*.80:
+                        CanOpenLimitOrders =True
+                        write_to_log(symbol,"******Can Open new Limit Order ********")
+                else :
+                    dfOpnOrdersFilt = dfOpnOrders[dfOpnOrders['symbol'] == symbol]
+                    write_to_log(" ***Check Limit Orders for ",symbol," *** ")
+                    if dfOpnOrdersFilt.empty:
+                        if notional_value>setup_params['InvestAmt']*.80:
+                            CanOpenLimitOrders =True
+                            write_to_log(symbol,"******Can Open new Limit Order ********")
+                    else:    
+                        write_to_log(symbol,"**Limit Orders are Present **")
+                        for index, row in dfOpnOrdersFilt.iterrows():
+                            write_to_log(row)
+
+                if OpenTradeQuantity>0:# For Closing Buy Position
+                    write_to_log('****1.checking open orders')    
+                    CloseSide='sell' 
+                    Updown=setup_params['correction']
+                    TrailPriceStopLoss=Get_Trailing_Stop(symbol,mark_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],setup_params['StopLossPerc'],setup_params['LongExit'])
+                    LimitOrderPrice=round(average_cost*(1+setup_params['StopLossPerc']),setup_params['DecimalPlace'])
+                    #TrailPriceStopLoss=max(ShortEntryUB,TrailPrice)
+                    CanClosePosition=  ( TrailPriceStopLoss > mark_price or current_price/average_cost>setup_params['TargetProftPerc'])
+                    
+                elif OpenTradeQuantity<0: #For Closing Sell Position
+                    CloseSide='buy'
+                    Updown=-setup_params['correction']
+                    #if(mark_price<average_cost):
+                    LimitOrderPrice=round(average_cost*(1-setup_params['StopLossPerc']),setup_params['DecimalPlace'])
+
+                    TrailPriceStopLoss=Get_Trailing_Stop(symbol,current_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],setup_params['StopLossPerc'],setup_params['ShortExit'])
+                    #TrailPriceStopLoss=min(LongEntryLB,TrailPrice)
+                    CanClosePosition= (TrailPriceStopLoss < mark_price or average_cost/mark_price>setup_params['TargetProftPerc'] )
+        
+                write_to_log('CanOpenLimitOrders,CanClosePosition,OpenTradeQuantity,average_cost  TrailPriceStopLoss: ',
+                             CanOpenLimitOrders,CanClosePosition,FormatNumber(OpenTradeQuantity),
+                             FormatNumber(average_cost), FormatNumber(TrailPriceStopLoss))
+                try: 
+                    #*************CLOSING  ORDER*****************************
+                    if  (CanClosePosition) :
+                        dfOpnOrders = RequestType('OO') 
+                        if not dfOpnOrders.empty:
+                            dfOpnOrdersFilt = dfOpnOrders[dfOpnOrders['symbol'] == symbol]
+                            if not dfOpnOrdersFilt.empty:
+                                for index, row in dfOpnOrdersFilt.iterrows():
+                                    write_to_log(row)
+                                    write_to_log(symbol,"******Canceling Orders ********")
+                                    RequestType('CNCL', OrderID=row['order_id'])
+
+                        write_to_log(symbol,'========================Close Position==========================================')
+                        orderPrice =round(getMidPrice(setup_params['Pair'])*(1-Updown),setup_params['DecimalPlace'])
+                        write_to_log(symbol, " Close Order price and Qty",FormatNumber(orderPrice),abs(OpenTradeQuantity))
+                        data = RequestType('NO',Symbol=symbol,
+                                           Qty=abs(OpenTradeQuantity),
+                                           ClientOrderID=setup_params['ClientOrderID'], 
+                                           orderPrice=orderPrice ,
+                                           OpType='LMT',
+                                           BuyOrSell=CloseSide)
+                        write_to_log('Close Position Step2:', data.iloc[-1])
+
+                    #*************OPENING LIMIT ORDER*****************************
+                    if (CanOpenLimitOrders and LimitOrderPrice>0 and unrealised_pnl>0):
+                        QtyLimit1=round(setup_params['InvestAmt']*(0.55)/current_price,setup_params['QtyRounding'])
+                        write_to_log(symbol,'========================Limit Order 1==========================================')
+                        data = RequestType('NO',Symbol=symbol,Qty=abs(QtyLimit1),
+                                            ClientOrderID=setup_params['ClientOrderID'], 
+                                            orderPrice=LimitOrderPrice,
+                                            OpType='LMT',
+                                            BuyOrSell=CloseSide)
+                        write_to_log('\Limit Order Position Step2:', data.iloc[-1])    
+
+                except (ValueError, KeyError, IndexError) as e:
+                    write_to_log(f'Error in =====Close Position===: {e}')
+                       
+            else:
+                dfOpnOrders = RequestType('OO') 
+                if not dfOpnOrders.empty:
+                    dfOpnOrdersFilt = dfOpnOrders[dfOpnOrders['symbol'] == symbol]
+                    if not dfOpnOrdersFilt.empty:
+                        for index, row in dfOpnOrdersFilt.iterrows():
+                            write_to_log(row)
+                            write_to_log(symbol,"******Canceling Orders ********")
+                            RequestType('CNCL', OrderID=row['order_id'])
+                            
+
+                    #write_to_log(dfOPLastRow)
+        if OpenTradeQuantity==0:
+            data_to_write(current_price,symbol)   
+
+        #CloseAllOpenOrdersForSymbol
+        write_to_log(symbol, " *** 15 minute signal ***: ", signal)
+
+        if(signal==1 or signal==-1) and OpenTradeQuantity==0 and setup_params['AllowTrading']=='Y'  :
+            write_to_log('========================Open New Position==========================================')
+            write_to_log("Test1")
+
+            current_price = getMidPrice(setup_params['Pair']) 
+            data_to_write(current_price,symbol)     
+            correction_factor = 1 + setup_params['correction']
+            buysellind = 'buy'
+            write_to_log("Test2")
+            Qty=round(setup_params['InvestAmt']/current_price,setup_params['QtyRounding'])
+            if signal==-1: 
+                buysellind ='sell'
+                correction_factor = 1 - setup_params['correction']
+            write_to_log("Test3")
+            df = RequestType('NO',Symbol=symbol,Qty= Qty,ClientOrderID=setup_params['ClientOrderID'],
+                                orderPrice=round(current_price * correction_factor, setup_params['DecimalPlace']),
+                            OpType='FC',BuyOrSell=buysellind)
+            
+            write_to_log('New {buysellind} Order Response:', df.iloc[-1])  
+           
+    
+def open_close_trade(symbol):
+    #try:
+    if True:    
+        time.sleep(1)
+        LogFileName="ethgusdperp_log.log"
+        write_to_log(f'************ {symbol.upper()} *******************')
+        OpenCloseTrade(symbol)
+    #except Exception as e:
+    #    write_to_log(f'An exception occurred: {e}')
+
+
+def Tradejob():
+    while True:
+        write_to_log('************ Thread Started *******************')
+        ProcessPriceSetupFileToLocal()
+        current_time = datetime.datetime.now()
+        write_to_log('Current Time:', current_time) 
+        
+        try:
+            dfBal = RequestType('Bal')
+            filtered_dfBal = dfBal[dfBal['currency'] == 'GUSD']
+            write_to_log(filtered_dfBal)
+        except Exception as e:
+            write_to_log(f'An exception occurred: {e}')
+
+        
+        open_close_trade('ethgusdperp')
+        
+        open_close_trade('btcgusdperp')
+        
+        open_close_trade('solgusdperp')
+        #open_close_trade('pepegusdperp')
+        #open_close_trade('maticgusdperp')
+
+        if current_time.minute % 15 == 0:
+            clear_output(wait=True)
+
+def test():
+    # sleep for 30 Seconds
+    #write_to_log(getYahooData('ETH-USD', '5m', '3d', MAPeriod=10))
+    write_to_log('Initiated....')
+    symbol='ethgusdperp'
+    setup_params=GetSetupParam(symbol)
+    write_to_log(setup_params)
+    current_price = getMidPrice(setup_params['Pair']) 
+ 
+    df=GetMAVal(setup_params['Pair'], MAPerid=setup_params['MAPeriod'],period='1hr',PriceBand=setup_params['BuyRange'])
+    #plot(df.tail(5))
+    write_to_log(df.tail(5))
+    write_to_log('current_price : ',current_price)
+    OpenCloseTrade('ethgusdperp')
+    
+
+if __name__ == '__main__':
+    LogFileName=""
+    #test()
+    # sleep for 30 Seconds
+    write_to_log('Initiated....')
+    Tradejob()
+  
