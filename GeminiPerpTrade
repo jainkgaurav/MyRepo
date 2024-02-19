@@ -502,23 +502,27 @@ def FastMASingMAStrategy(last_row,current_price,setup_params):
 def SlowMAStrategy(last_row,  current_price):
      #For MA Price
     MAGapPercnt=last_row["MASLRatio"]  +last_row["MASLRatio"]/2
-    MAUpperBuyRange=last_row["FastUpperMA"] + last_row["MAHLRange"]
-    MAUpperLowerRange=last_row["FastLowerMA"] - last_row["MAHLRange"]
+
+    MABuyUpperRange=last_row["FastUpperMA"] + last_row["MAHLRange"]
+    MABuyLowerRange=(last_row["FastMA"] - last_row["MAHLRange"]/2)
+
+    MASellUpperRange=last_row["FastMA"] + last_row["MAHLRange"]/2
+    MASellLowerRange=last_row["FastLowerMA"] - last_row["MAHLRange"] 
 
 
     isMABuyCondMatch =   (current_price>last_row["HA_High"] 
-                          and current_price<MAUpperBuyRange 
-                          and current_price>last_row["FastLowerMA"] 
+                          and current_price<MABuyUpperRange 
+                          and current_price>MABuyLowerRange
                           and last_row["MA5"]>last_row["MA8"]
                           )
     isMASellCondMatch = ( current_price<last_row["HA_Low"] 
-                         and current_price>MAUpperLowerRange 
-                         and current_price<last_row["FastUpperMA"] 
+                         and current_price>MASellUpperRange 
+                         and current_price<MASellLowerRange
                          and last_row["MA5"]<last_row["MA8"]
                         ) 
     
     write_to_log("current_price,FastUpperMA,FastMA,FastLowerMA:   ",current_price,last_row["FastUpperMA"] ,last_row["FastMA"],last_row["FastLowerMA"]  )                           
-    write_to_log("MAUpperRange ,MALowerRange",MAUpperBuyRange ,MAUpperLowerRange)
+    write_to_log("MABuyUpperRange ,MABuyLowerRange,MASellUpperRange,MASellLowerRange",MABuyUpperRange ,MABuyLowerRange,MASellUpperRange,MASellLowerRange)
 
     return isMABuyCondMatch,isMASellCondMatch,MAGapPercnt
 
@@ -636,12 +640,13 @@ def OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current
            OrderPrice=current_price 
 
         LimitPrice1=round(OrderPrice*(1+BuySellSign * 2 * MAGapPercnt),setup_params['DecimalPlace'])
-        LimitPrice2=round(OrderPrice*(1+BuySellSign * 4 * MAGapPercnt),setup_params['DecimalPlace'])
-        LimitPrice3=round(OrderPrice*(1+BuySellSign * 5 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice2=round(OrderPrice*(1+BuySellSign * 3 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice3=round(OrderPrice*(1+BuySellSign * 4 * MAGapPercnt),setup_params['DecimalPlace'])
         
-        Qty1=round(notional_value*(0.35)/current_price,setup_params['QtyRounding'])
-        Qty2=round(notional_value*(0.25)/current_price,setup_params['QtyRounding'])
-        Qty3=round(notional_value*(0.15)/current_price,setup_params['QtyRounding'])
+        Qty1=round(notional_value*(0.50)/current_price,setup_params['QtyRounding'])
+        Qty2=round(notional_value*(0.20)/current_price,setup_params['QtyRounding'])
+        Qty3=round(notional_value*(0.20)/current_price,setup_params['QtyRounding'])
+        
         
         write_to_log(symbol,'========================Limit Order 1==========================================')
         #==Send Order
@@ -669,7 +674,7 @@ def OpenNewOrder(symbol,current_price,signal,last_row):
         Qty=round(invested_amount/current_price,setup_params['QtyRounding'])    
         orderPrice=round(current_price * correction_factor, setup_params['DecimalPlace'])
         SendOrder(symbol, Qty,ClientID,orderPrice,buysellind)
-        message = f"Order opened - {symbol}\nPrice: ${current_price}\nQty: {current_price}\nSignal: {buysellind}\ninvested_amount: {invested_amount}"
+        message = f"Order opened - {symbol}\nPrice: ${orderPrice}\nQty: {Qty}\nSignal: {buysellind}\ninvested_amount: {invested_amount}"
         send_notification(message)  
         
                        
