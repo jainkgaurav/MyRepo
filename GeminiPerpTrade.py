@@ -518,7 +518,7 @@ def SlowMAStrategy(last_row,  current_price):
     isMASellCondMatch = ( current_price<last_row["HA_Low"] 
                          and current_price<MASellUpperRange 
                          and current_price>MASellLowerRange
-                         and current_price<last_row["M5"]
+                         and current_price<last_row["MA5"]
                         ) 
     
     write_to_log("current_price,FastUpperMA,FastMA,FastLowerMA:   ",current_price,last_row["FastUpperMA"] ,last_row["FastMA"],last_row["FastLowerMA"]  )                           
@@ -743,9 +743,8 @@ def OpenCloseTrade(symbol):
                 CloseSide='sell' 
                 BuySellSign=1
                 Correction=setup_params['correction']
-                #TrailPriceStopLoss=Get_Trailing_Stop(symbol,mark_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],StopLossParamTrail)
-                #TrailPriceStopLoss = max(round(last_row["UpperMA"]*(1-MAGapPercnt),setup_params['DecimalPlace']) ,round(average_cost*(1-MAGapPercnt),setup_params['DecimalPlace']))
-                TrailPriceStopLoss=max(last_row["FastLowerMA"] ,round(average_cost*(1-2*MAGapPercnt),setup_params['DecimalPlace']))
+                TrailPriceStopLoss=Get_Trailing_Stop(symbol,mark_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],2.5*MAGapPercnt)
+                TrailPriceStopLoss=max(last_row["FastLowerMA"], TrailPriceStopLoss ) #round(average_cost*(1-2*MAGapPercnt),setup_params['DecimalPlace']))
                 CanClosePosition=  ( TrailPriceStopLoss > mark_price or current_price/average_cost>setup_params['TargetProftPerc'])
                 OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost)
 
@@ -754,9 +753,8 @@ def OpenCloseTrade(symbol):
                 CloseSide='buy'
                 BuySellSign=-1
                 Correction=-setup_params['correction']
-                #TrailPriceStopLoss=Get_Trailing_Stop(symbol,current_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],StopLossParamTrail)
-                #TrailPriceStopLoss = min(round(last_row["LowerMA"]*(1+MAGapPercnt),setup_params['DecimalPlace']) ,round(average_cost*(1+MAGapPercnt),setup_params['DecimalPlace']))
-                TrailPriceStopLoss=min(last_row["FastUpperMA"] ,round(average_cost*(1+2*MAGapPercnt),setup_params['DecimalPlace']))
+                TrailPriceStopLoss=Get_Trailing_Stop(symbol,current_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],2.5*MAGapPercnt)
+                TrailPriceStopLoss=min(last_row["FastUpperMA"] ,TrailPriceStopLoss) #round(average_cost*(1+2*MAGapPercnt),setup_params['DecimalPlace']))
                 CanClosePosition= (TrailPriceStopLoss < mark_price or average_cost/mark_price>setup_params['TargetProftPerc'] )
 
                 OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost)  
