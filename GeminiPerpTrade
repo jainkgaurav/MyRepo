@@ -373,7 +373,7 @@ def FormatNumber(val):
 
 def CandleLogic(df,MAPeriod,PriceBand):
     shift=20
-    MAFastPeriod=int(MAPeriod/2)
+    MAFastPeriod=MAPeriod
     write_to_log("MAFastPeriod,",MAFastPeriod)
     # Download historical data from Yahoo Finance
     df['HA_Open']  = (df['Open'].shift(1) + df['Close'].shift(1)) / 2
@@ -392,8 +392,8 @@ def CandleLogic(df,MAPeriod,PriceBand):
     df['LowRange'] = df['HA_Low'].rolling(window=300).mean()
     df["MAHLRange"]=(df['HighRange']-df['LowRange'])
     df["MASLRatio"]=(df['HighRange']-df['LowRange'])/df['LowRange']
-    df['FastMA'] = df['HA_Close'].rolling(window=MAFastPeriod).mean()-2*df['MAHLRange']
-    df['MA'] = df['HA_Close'].rolling(window=MAPeriod).mean()-df['MAHLRange']
+    df['FastMA'] = df['HA_Close'].rolling(window=MAFastPeriod).mean()-2* df['MAHLRange']
+    df['MA'] = df['HA_Close'].rolling(window=MAPeriod).mean()-2*df['MAHLRange']
     df['UpperMA'] = df['MA']+df['MAHLRange']
     df['LowerMA'] = df['MA']-df['MAHLRange']
     df['FastUpperMA'] = df['FastMA']+df['MAHLRange']
@@ -513,16 +513,16 @@ def SlowMAStrategy(last_row,  current_price):
     isMABuyCondMatch =   (current_price>last_row["HA_High"] 
                           and current_price<MABuyUpperRange 
                           and current_price>MABuyLowerRange
-                          and last_row["MA5"]>last_row["MA8"]
+                          and last_row["MA5"]<current_price
                           )
     isMASellCondMatch = ( current_price<last_row["HA_Low"] 
-                         and current_price>MASellUpperRange 
-                         and current_price<MASellLowerRange
-                         and last_row["MA5"]<last_row["MA8"]
+                         and current_price<MASellUpperRange 
+                         and current_price>MASellLowerRange
+                         and current_price<last_row["M5"]
                         ) 
     
     write_to_log("current_price,FastUpperMA,FastMA,FastLowerMA:   ",current_price,last_row["FastUpperMA"] ,last_row["FastMA"],last_row["FastLowerMA"]  )                           
-    write_to_log("MABuyUpperRange ,MABuyLowerRange,MASellUpperRange,MASellLowerRange",MABuyUpperRange ,MABuyLowerRange,MASellUpperRange,MASellLowerRange)
+    write_to_log("MABuyUpperRange ,MABuyLowerRange,MASellUpperRange,MASellLowerRange, istrue",MABuyUpperRange ,MABuyLowerRange,MASellUpperRange,MASellLowerRange,last_row["MA5"]>last_row["MA8"])
 
     return isMABuyCondMatch,isMASellCondMatch,MAGapPercnt
 
@@ -639,13 +639,13 @@ def OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current
         if current_price>average_cost:
            OrderPrice=current_price 
 
-        LimitPrice1=round(OrderPrice*(1+BuySellSign * 2 * MAGapPercnt),setup_params['DecimalPlace'])
-        LimitPrice2=round(OrderPrice*(1+BuySellSign * 3 * MAGapPercnt),setup_params['DecimalPlace'])
-        LimitPrice3=round(OrderPrice*(1+BuySellSign * 4 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice1=round(OrderPrice*(1+BuySellSign * 4 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice2=round(OrderPrice*(1+BuySellSign * 6 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice3=round(OrderPrice*(1+BuySellSign * 8 * MAGapPercnt),setup_params['DecimalPlace'])
         
         Qty1=round(notional_value*(0.50)/current_price,setup_params['QtyRounding'])
-        Qty2=round(notional_value*(0.20)/current_price,setup_params['QtyRounding'])
-        Qty3=round(notional_value*(0.20)/current_price,setup_params['QtyRounding'])
+        Qty2=round(notional_value*(0.10)/current_price,setup_params['QtyRounding'])
+        Qty3=round(notional_value*(0.10)/current_price,setup_params['QtyRounding'])
         
         
         write_to_log(symbol,'========================Limit Order 1==========================================')
@@ -705,7 +705,9 @@ def OpenCloseTrade(symbol):
         write_to_log(dfOP)
         
         IsPosOpen=IsPositionOpen(symbol)
-        
+        current_minute = datetime.datetime.now().minute
+        if current_minute % 30 == 0:
+           send_notification(f"{symbol}:{signal}")
 
         if IsPosOpen==False:
         #    signal,MAGapPercnt,last_row=  getBuySellCloseSignal(symbol)
@@ -714,7 +716,8 @@ def OpenCloseTrade(symbol):
             OpenNewOrder(symbol,current_price,signal,last_row) 
 
         else:
-
+           
+        
             filtered_dfOP = dfOP[dfOP['symbol'] == symbol]
             write_to_log('symbol : ',symbol)
             average_cost = float(filtered_dfOP['average_cost'].values[0])
@@ -723,6 +726,18 @@ def OpenCloseTrade(symbol):
             mark_price=float(filtered_dfOP['mark_price'].values[0])
             notional_value=abs(float(filtered_dfOP['notional_value'].values[0]))
 
+            try:
+                if current_minute % 30 == 0:
+                    msg=''
+                    for index, row in dfOP.iterrows():
+                        for column, value in row.items():
+                            msg=msg+f"{column}: {value}\n"
+                    send_notification(msg)
+            except Exception as e:
+                 write_to_log(f'An exception occurred: in sending message{e}')
+            
+   
+
             # For Closing Buy Position
             if OpenTradeQuantity>0:
                 CloseSide='sell' 
@@ -730,7 +745,7 @@ def OpenCloseTrade(symbol):
                 Correction=setup_params['correction']
                 #TrailPriceStopLoss=Get_Trailing_Stop(symbol,mark_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],StopLossParamTrail)
                 #TrailPriceStopLoss = max(round(last_row["UpperMA"]*(1-MAGapPercnt),setup_params['DecimalPlace']) ,round(average_cost*(1-MAGapPercnt),setup_params['DecimalPlace']))
-                TrailPriceStopLoss=max(last_row["FastLowerMA"] ,round(average_cost*(1-MAGapPercnt),setup_params['DecimalPlace']))
+                TrailPriceStopLoss=max(last_row["FastLowerMA"] ,round(average_cost*(1-2*MAGapPercnt),setup_params['DecimalPlace']))
                 CanClosePosition=  ( TrailPriceStopLoss > mark_price or current_price/average_cost>setup_params['TargetProftPerc'])
                 OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost)
 
@@ -741,7 +756,7 @@ def OpenCloseTrade(symbol):
                 Correction=-setup_params['correction']
                 #TrailPriceStopLoss=Get_Trailing_Stop(symbol,current_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],StopLossParamTrail)
                 #TrailPriceStopLoss = min(round(last_row["LowerMA"]*(1+MAGapPercnt),setup_params['DecimalPlace']) ,round(average_cost*(1+MAGapPercnt),setup_params['DecimalPlace']))
-                TrailPriceStopLoss=min(last_row["FastUpperMA"] ,round(average_cost*(1+MAGapPercnt),setup_params['DecimalPlace']))
+                TrailPriceStopLoss=min(last_row["FastUpperMA"] ,round(average_cost*(1+2*MAGapPercnt),setup_params['DecimalPlace']))
                 CanClosePosition= (TrailPriceStopLoss < mark_price or average_cost/mark_price>setup_params['TargetProftPerc'] )
 
                 OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost)  
@@ -761,7 +776,8 @@ def send_notification(*argmsg,timeInterval=0):
     chat_id = config.get('TGSIGNALBOT', 'CHAT_ID')
     current_minute = datetime.datetime.now().minute
     msg = "\n".join(argmsg)
-    write_to_log(msg)
+    msg=msg.replace('_',' ')
+    
     if timeInterval==0 or (timeInterval>0 and current_minute % timeInterval == 0):
         url = f'https://api.telegram.org/bot{bot_token}/sendMessage'
         params = {'chat_id': chat_id, 'text': msg, 'parse_mode': 'Markdown'}
