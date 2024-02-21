@@ -515,8 +515,15 @@ def FastMASingMAStrategy(last_row,current_price,setup_params):
 def FixPriceStrategy(last_row,current_price,setup_params):
     #Very fast 
     MAGapPercnt=last_row["MASLRatio"] 
-    isMABuyCondMatch =   (current_price>last_row["HA_High"] and current_price>setup_params['LongEntry'] and current_price<setup_params['LongEntry']*(1+MAGapPercnt))
-    isMASellCondMatch =  ( current_price<last_row["HA_Low"] and current_price<setup_params['ShortEntry'] and current_price>setup_params['ShortEntry']*(1-MAGapPercnt))
+    isMABuyCondMatch =   (current_price>last_row["HA_Close"] 
+                          and last_row["IsGreen"]=="G" 
+                          and current_price>setup_params['LongEntry'] 
+                          and current_price<setup_params['LongEntry']*(1+MAGapPercnt))
+    isMASellCondMatch =  (current_price<last_row["HA_Close"] 
+                         and last_row["IsGreen"]=="R" 
+                         and current_price<last_row["HA_Low"] 
+                         and current_price<setup_params['ShortEntry'] 
+                         and current_price>setup_params['ShortEntry']*(1-MAGapPercnt))
     write_to_log("current_price,LongEntry,ShortEntry:   ",current_price,setup_params["LongEntry"] ,setup_params["ShortEntry"] )                           
 
     return isMABuyCondMatch,isMASellCondMatch,MAGapPercnt
@@ -689,11 +696,11 @@ def OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current
         if current_price>average_cost:
            OrderPrice=current_price 
 
-        LimitPrice1=round(OrderPrice*(1+BuySellSign * 2 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice1=round(OrderPrice*(1+BuySellSign * 3 * MAGapPercnt),setup_params['DecimalPlace'])
         LimitPrice2=round(OrderPrice*(1+BuySellSign * 4 * MAGapPercnt),setup_params['DecimalPlace'])
         LimitPrice3=round(OrderPrice*(1+BuySellSign * 5 * MAGapPercnt),setup_params['DecimalPlace'])
         
-        Qty1=round(notional_value*(0.65)/current_price,setup_params['QtyRounding'])
+        Qty1=round(notional_value*(0.50)/current_price,setup_params['QtyRounding'])
         Qty2=round(notional_value*(0.20)/current_price,setup_params['QtyRounding'])
         Qty3=round(notional_value*(0.10)/current_price,setup_params['QtyRounding'])
         
