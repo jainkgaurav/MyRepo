@@ -164,6 +164,18 @@ def NewOrder(SymbolScript='',Qty=0.00,ClientOrderID='', orderPrice=0, OrderType=
                 'side': BuyOrSell,
                 'type': 'exchange stop limit'
                   }   
+    elif OrderType  == 'IC':
+        payload = {
+                'request': '/v1/order/new',
+                'client_order_id':ClientOrderID,
+                'nonce': payload_nounce,
+                'symbol': SymbolScript,
+                'amount': str(Qty),
+                'price': str(orderPrice),
+                'side': BuyOrSell,
+                'type': 'exchange limit',
+                'options' : ['immediate-or-cancel']
+                  }
     else:
         payload = {
                 'request': '/v1/order/new',
@@ -499,6 +511,37 @@ def FastMASingMAStrategy(last_row,current_price,setup_params):
 
     return isMABuyCondMatch,isMASellCondMatch,MAGapPercnt
 
+
+def FixPriceStrategy(last_row,current_price,setup_params):
+    #Very fast 
+    MAGapPercnt=last_row["MASLRatio"] 
+    isMABuyCondMatch =   (current_price>last_row["HA_High"] and current_price>setup_params['LongEntry'] and current_price<setup_params['LongEntry']*(1+MAGapPercnt))
+    isMASellCondMatch =  ( current_price<last_row["HA_Low"] and current_price<setup_params['ShortEntry'] and current_price>setup_params['ShortEntry']*(1-MAGapPercnt))
+    write_to_log("current_price,LongEntry,ShortEntry:   ",current_price,setup_params["LongEntry"] ,setup_params["ShortEntry"] )                           
+
+    return isMABuyCondMatch,isMASellCondMatch,MAGapPercnt
+
+
+def MACandleStrategy(df,  current_price):
+    last_row=df.iloc[-1]
+    last_row_1=df.iloc[-2]
+    last_row_2=df.iloc[-3]
+
+    MAGapPercnt=last_row["MASLRatio"]
+    isMABuyCondMatch =   (current_price>last_row["HA_Close"] 
+                          and last_row["IsGreen"]=="G"
+                          and last_row_1["IsGreen"]=="R"
+                          and last_row_2["IsGreen"]=="R"
+                          and last_row["MA5"]<current_price
+                          )
+    isMASellCondMatch = ( current_price<last_row["HA_Close"] 
+                         and last_row["IsGreen"]=="R"
+                         and last_row_1["IsGreen"]=="G"
+                         and last_row_2["IsGreen"]=="G"
+                         and last_row["MA5"]>current_price
+                        ) 
+    return isMABuyCondMatch,isMASellCondMatch,MAGapPercnt
+
 def SlowMAStrategy(last_row,  current_price):
      #For MA Price
     MAGapPercnt=last_row["MASLRatio"]  +last_row["MASLRatio"]/2
@@ -523,7 +566,7 @@ def SlowMAStrategy(last_row,  current_price):
     
     write_to_log("current_price,FastUpperMA,FastMA,FastLowerMA:   ",current_price,last_row["FastUpperMA"] ,last_row["FastMA"],last_row["FastLowerMA"]  )                           
     write_to_log("MABuyUpperRange ,MABuyLowerRange,MASellUpperRange,MASellLowerRange, istrue",MABuyUpperRange ,MABuyLowerRange,MASellUpperRange,MASellLowerRange,last_row["MA5"]>last_row["MA8"])
-
+    
     return isMABuyCondMatch,isMASellCondMatch,MAGapPercnt
 
 def getBuySellCloseSignal(symbol):
@@ -542,9 +585,15 @@ def getBuySellCloseSignal(symbol):
         last_row = df.iloc[-1]
         TradeMethod=setup_params['TradeMethod']
         
-        isBuyCondMatch,isSellCondMatch,MAGapPercnt = SlowMAStrategy(last_row, current_price)
+        #isBuyCondMatch,isSellCondMatch,MAGapPercnt = SlowMAStrategy(last_row, current_price)
+        if(TradeMethod=="FIX"):
+            isBuyCondMatch,isSellCondMatch,MAGapPercnt = FixPriceStrategy(last_row,current_price,setup_params)
+        else:    
+            isBuyCondMatch,isSellCondMatch,MAGapPercnt = MACandleStrategy(df, current_price)
+            
         #isBuyCondMatch,isSellCondMatch,MAGapPercnt = FastMASingMAStrategy(last_row, current_price,setup_params)
         MAGapPercnt=round(float(read_write_data(MAGapPercnt,symbol,"MAGapPercnt","W")),3)
+        
 
         write_to_log("current_price,MATimeFrame,MAPeriod :   ",current_price,setup_params['MATimeFrame'],setup_params['MAPeriod'])
         write_to_log("isBuyCondMatch , isSellCondMatch ,MAGapPercnt :   ",isBuyCondMatch,isSellCondMatch,MAGapPercnt)
@@ -555,7 +604,7 @@ def getBuySellCloseSignal(symbol):
             signal=-1     
 
         #send_notification("testing singal",symbol,str(current_price))    
-       
+        
     return signal ,MAGapPercnt,last_row
 
 def IsPositionOpen(symbol):
@@ -583,12 +632,13 @@ def invest_based_on_signal(signal, current_price, high_high, low_low, investment
     return invested_amount
 
 
-def SendOrder(symbol,Qty,ClientOrderID,orderPrice,BuyOrSellSide):
+def SendOrder(symbol,Qty,ClientOrderID,orderPrice,BuyOrSellSide,Optiontype="LMT"):
+
     data = RequestType('NO',Symbol=symbol,
             Qty=Qty,
             ClientOrderID=ClientOrderID, 
             orderPrice=orderPrice ,
-            OpType='LMT',
+            OpType=Optiontype,
             BuyOrSell=BuyOrSellSide)
     write_to_log('New {buysellind} Order Response:', data.iloc[-1])  
 
@@ -625,13 +675,13 @@ def CloseOrder(symbol,setup_params,OpenTradeQuantity,CloseSide,Correction,Client
     write_to_log(symbol,'========================Close Position==========================================')
     orderPrice =round(getMidPrice(setup_params['Pair'])*(1-Correction),setup_params['DecimalPlace'])
     write_to_log(symbol, " Close Order price and Qty",FormatNumber(orderPrice),abs(OpenTradeQuantity))
-    SendOrder(symbol, abs(OpenTradeQuantity),ClientID,orderPrice,CloseSide)
+    SendOrder(symbol, abs(OpenTradeQuantity),ClientID,orderPrice,CloseSide,Optiontype='IC')
     message = f"Close Order Place - {symbol}\nPrice: ${orderPrice}\nQty: {OpenTradeQuantity}\nSignal: {CloseSide}"
     send_notification(message)  
 
 def OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost):
     #*************OPENING LIMIT ORDER*****************************
-    if (AllowToOpenLimitOrder(symbol) and  notional_value > 1500 and  CanClosePosition==False): #and unrealised_pnl>0
+    if (AllowToOpenLimitOrder(symbol) and  notional_value > 2000 and  CanClosePosition==False): #and unrealised_pnl>0
         CancelSymbolOrder(symbol)
         write_to_log("Opening Limit Orders")   
         
@@ -639,12 +689,12 @@ def OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current
         if current_price>average_cost:
            OrderPrice=current_price 
 
-        LimitPrice1=round(OrderPrice*(1+BuySellSign * 4 * MAGapPercnt),setup_params['DecimalPlace'])
-        LimitPrice2=round(OrderPrice*(1+BuySellSign * 6 * MAGapPercnt),setup_params['DecimalPlace'])
-        LimitPrice3=round(OrderPrice*(1+BuySellSign * 8 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice1=round(OrderPrice*(1+BuySellSign * 2 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice2=round(OrderPrice*(1+BuySellSign * 4 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice3=round(OrderPrice*(1+BuySellSign * 5 * MAGapPercnt),setup_params['DecimalPlace'])
         
-        Qty1=round(notional_value*(0.50)/current_price,setup_params['QtyRounding'])
-        Qty2=round(notional_value*(0.10)/current_price,setup_params['QtyRounding'])
+        Qty1=round(notional_value*(0.65)/current_price,setup_params['QtyRounding'])
+        Qty2=round(notional_value*(0.20)/current_price,setup_params['QtyRounding'])
         Qty3=round(notional_value*(0.10)/current_price,setup_params['QtyRounding'])
         
         
@@ -673,7 +723,7 @@ def OpenNewOrder(symbol,current_price,signal,last_row):
         #invested_amount = invest_based_on_signal(buysellind, current_price, last_row["HighHigh"], last_row["LowLow"], invested_amount)
         Qty=round(invested_amount/current_price,setup_params['QtyRounding'])    
         orderPrice=round(current_price * correction_factor, setup_params['DecimalPlace'])
-        SendOrder(symbol, Qty,ClientID,orderPrice,buysellind)
+        SendOrder(symbol, Qty,ClientID,orderPrice,buysellind,Optiontype='IC')
         message = f"Order opened - {symbol}\nPrice: ${orderPrice}\nQty: {Qty}\nSignal: {buysellind}\ninvested_amount: {invested_amount}"
         send_notification(message)  
         
@@ -743,8 +793,8 @@ def OpenCloseTrade(symbol):
                 CloseSide='sell' 
                 BuySellSign=1
                 Correction=setup_params['correction']
-                TrailPriceStopLoss=Get_Trailing_Stop(symbol,mark_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],2.5*MAGapPercnt)
-                TrailPriceStopLoss=max(last_row["FastLowerMA"], TrailPriceStopLoss ) #round(average_cost*(1-2*MAGapPercnt),setup_params['DecimalPlace']))
+                TrailPriceStopLoss=Get_Trailing_Stop(symbol,mark_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],  MAGapPercnt)
+                #TrailPriceStopLoss=max(last_row["FastLowerMA"], TrailPriceStopLoss ) #round(average_cost*(1-2*MAGapPercnt),setup_params['DecimalPlace']))
                 CanClosePosition=  ( TrailPriceStopLoss > mark_price or current_price/average_cost>setup_params['TargetProftPerc'])
                 OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost)
 
@@ -753,8 +803,8 @@ def OpenCloseTrade(symbol):
                 CloseSide='buy'
                 BuySellSign=-1
                 Correction=-setup_params['correction']
-                TrailPriceStopLoss=Get_Trailing_Stop(symbol,current_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],2.5*MAGapPercnt)
-                TrailPriceStopLoss=min(last_row["FastUpperMA"] ,TrailPriceStopLoss) #round(average_cost*(1+2*MAGapPercnt),setup_params['DecimalPlace']))
+                TrailPriceStopLoss=Get_Trailing_Stop(symbol,current_price, average_cost, OpenTradeQuantity,setup_params['AllowTrailing'],   MAGapPercnt)
+                #TrailPriceStopLoss=min(last_row["FastUpperMA"] ,TrailPriceStopLoss) #round(average_cost*(1+2*MAGapPercnt),setup_params['DecimalPlace']))
                 CanClosePosition= (TrailPriceStopLoss < mark_price or average_cost/mark_price>setup_params['TargetProftPerc'] )
 
                 OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost)  
