@@ -514,7 +514,7 @@ def FastMASingMAStrategy(last_row,current_price,setup_params):
 
 def FixPriceStrategy(last_row,current_price,setup_params):
     #Very fast 
-    MAGapPercnt=last_row["MASLRatio"] 
+    MAGapPercnt= setup_params["StopLossPerc"] 
     isMABuyCondMatch =   (current_price>last_row["HA_Close"] 
                           and last_row["IsGreen"]=="G" 
                           and current_price>setup_params['LongEntry'] 
