@@ -224,8 +224,10 @@ def getScriptPrice(symbol):
     return df
 
 def getMidPrice(symbol,AskBid=''):
+
     df = getScriptPrice(symbol)
     row=df.iloc[-1]
+    write_to_log(row,AskBid)
     midPrice=(float(row['bid'])+float(row['ask']))/2
 
     if AskBid=="Bid":
@@ -720,7 +722,7 @@ def CloseOrder(symbol,setup_params,OpenTradeQuantity,CloseSide,Correction,Client
     write_to_log(symbol,'========================Close Position==========================================')
     orderPrice =round(getMidPrice(setup_params['Pair'],AskBid)*(1+ Correction),setup_params['DecimalPlace'])
     write_to_log(symbol, " Close Order price and Qty",FormatNumber(orderPrice),abs(OpenTradeQuantity))
-    SendOrder(symbol, abs(OpenTradeQuantity),ClientID,orderPrice,CloseSide,Optiontype='IC')
+    SendOrder(symbol, abs(OpenTradeQuantity),ClientID,orderPrice,CloseSide,Optiontype='LMT')
     message = f"Close Order Place - {symbol}\nPrice: ${orderPrice}\nQty: {OpenTradeQuantity}\nSignal: {CloseSide}"
     send_notification(message)  
 
@@ -841,7 +843,7 @@ def OpenCloseTrade(symbol):
             
             # For Closing Buy Position
             if OpenTradeQuantity>0:
-                AskBid='Bid'
+                AskBid='Ask'
                 CloseSide='sell' 
                 BuySellSign=1
                 Correction=setup_params['correction']
@@ -856,7 +858,7 @@ def OpenCloseTrade(symbol):
 
             #For Closing Sell Position    
             elif OpenTradeQuantity<0:
-                AskBid='Ask'
+                AskBid='Bid'
                 CloseSide='buy'
                 BuySellSign=-1
                 Correction=-setup_params['correction']
