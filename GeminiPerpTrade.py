@@ -714,8 +714,8 @@ def AllowToOpenLimitOrder(symbol):
     #Return Value
     return CanOpenLimitOrders
 
-
-def CloseOrder(symbol,setup_params,OpenTradeQuantity,CloseSide,Correction,ClientID,AskBid,BuySellSign):
+    
+def CloseOrder(symbol,setup_params,OpenTradeQuantity,CloseSide,Correction,ClientID,AskBid):
     #*************CLOSING  ORDER*****************************
     write_to_log(symbol,'========================Close Position==========================================')
     orderPrice =round(getMidPrice(setup_params['Pair'],AskBid)*(1+ Correction),setup_params['DecimalPlace'])
