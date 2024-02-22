@@ -473,6 +473,7 @@ def GetSetupParam(ConfigKey):
     # Create a dictionary to store key-value pairs of setup parameters
     setup_params = {
         'correction': float(config.get('InitParam', 'Correction')),
+        'IsProgram':  config.get('InitParam', 'IsProgram'),
         'MAPeriod': int(config.get(ConfigKey, 'MAPeriod')),
         'MATimeFrame' : config.get(ConfigKey, 'MATimeFrame'),
         'shift': int(config.get('InitParam', 'shift')),
@@ -895,10 +896,11 @@ def send_notification(*argmsg,timeInterval=0):
 
 def open_close_trade(symbol):
     try:
-    #if True:    
-        time.sleep(1)
+        time.sleep(2)
         write_to_log(f'************ {symbol.upper()} *******************')
-        OpenCloseTrade(symbol)
+        setup_params=GetSetupParam(symbol)
+        if setup_params['IsProgram']=='ON':
+           OpenCloseTrade(symbol)
     except Exception as e:
         write_to_log(f'An exception occurred: {e}')
         send_notification(f'An exception occurred: {e}',timeInterval=3)
@@ -906,7 +908,9 @@ def open_close_trade(symbol):
 
 def open_close_trade1(symbol):
     write_to_log(f'************ {symbol.upper()} *******************')
-    OpenCloseTrade(symbol)
+    setup_params=GetSetupParam(symbol)
+    if setup_params['IsProgram']=='ON':
+        OpenCloseTrade(symbol)
     time.sleep(3)
 
 
