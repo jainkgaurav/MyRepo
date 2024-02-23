@@ -644,14 +644,22 @@ def getBuySellCloseSignal(symbol):
 
         write_to_log("current_price,MATimeFrame,MAPeriod :   ",current_price,setup_params['MATimeFrame'],setup_params['MAPeriod'])
         write_to_log("isBuyCondMatch , isSellCondMatch ,MAGapPercnt :   ",isBuyCondMatch,isSellCondMatch,MAGapPercnt)
+        strPrice=str(current_price)
 
+        
         if isBuyCondMatch:
             signal=1
         if isSellCondMatch:
             signal=-1     
+            
+        current_minute = datetime.datetime.now().minute
+        if current_minute % 15 == 0 and signal!=0:    
+            send_notification(f"{symbol}:\n{strPrice}\n{signal}")
 
-        #send_notification("testing singal",symbol,str(current_price))    
-        
+        if current_minute % 2 == 0 and symbol=='solgusdperp':
+            write_to_log(last_row)
+            time.sleep(30)
+
     return signal ,MAGapPercnt,last_row
 
 def IsPositionOpen(symbol):
@@ -716,15 +724,22 @@ def AllowToOpenLimitOrder(symbol):
     #Return Value
     return CanOpenLimitOrders
 
+def IsAmtInvestInControl(symbol):
+    IsTrue=True
+    
+    return IsTrue
+
     
 def CloseOrder(symbol,setup_params,OpenTradeQuantity,CloseSide,Correction,ClientID,AskBid):
-    #*************CLOSING  ORDER*****************************
-    write_to_log(symbol,'========================Close Position==========================================')
-    orderPrice =round(getMidPrice(setup_params['Pair'],AskBid)*(1+ Correction),setup_params['DecimalPlace'])
-    write_to_log(symbol, " Close Order price and Qty",FormatNumber(orderPrice),abs(OpenTradeQuantity))
-    SendOrder(symbol, abs(OpenTradeQuantity),ClientID,orderPrice,CloseSide,Optiontype='IC')
-    message = f"Close Order Place - {symbol}\nPrice: ${orderPrice}\nQty: {OpenTradeQuantity}\nSignal: {CloseSide}"
-    send_notification(message)  
+    CancelOpenLimitOrders(symbol)
+    if IsPositionOpen(symbol)==False:
+        #*************CLOSING  ORDER*****************************
+        write_to_log(symbol,'========================Close Position==========================================')
+        orderPrice =round(getMidPrice(setup_params['Pair'],AskBid)*(1+ Correction),setup_params['DecimalPlace'])
+        write_to_log(symbol, " Close Order price and Qty",FormatNumber(orderPrice),abs(OpenTradeQuantity))
+        SendOrder(symbol, abs(OpenTradeQuantity),ClientID,orderPrice,CloseSide,Optiontype='IC')
+        message = f"Close Order Place - {symbol}\nPrice: ${orderPrice}\nQty: {OpenTradeQuantity}\nSignal: {CloseSide}"
+        send_notification(message)  
 
 def OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost):
     #*************OPENING LIMIT ORDER*****************************
@@ -741,43 +756,45 @@ def OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current
         LimitPrice3=round(OrderPrice*(1+BuySellSign * 3.5 * MAGapPercnt),setup_params['DecimalPlace'])
         LimitPrice4=round(OrderPrice*(1+BuySellSign * 5 * MAGapPercnt),setup_params['DecimalPlace'])
 
-        Qty1=round(notional_value*(0.30)/current_price,setup_params['QtyRounding'])
+        Qty1=round(notional_value*(0.50)/current_price,setup_params['QtyRounding'])
         Qty2=round(notional_value*(0.25)/current_price,setup_params['QtyRounding'])
-        Qty3=round(notional_value*(0.25)/current_price,setup_params['QtyRounding'])
-        Qty4=round(notional_value*(0.10)/current_price,setup_params['QtyRounding'])
+        #Qty3=round(notional_value*(0.25)/current_price,setup_params['QtyRounding'])
+        #Qty4=round(notional_value*(0.10)/current_price,setup_params['QtyRounding'])
 
         write_to_log(symbol,'========================Limit Order 1==========================================')
         #==Send Order
         SendOrder(symbol, abs(Qty1),ClientID,LimitPrice1,CloseSide)
         SendOrder(symbol, abs(Qty2),ClientID,LimitPrice2,CloseSide)
-        SendOrder(symbol, abs(Qty3),ClientID,LimitPrice3,CloseSide)
-        SendOrder(symbol, abs(Qty4),ClientID,LimitPrice4,CloseSide)
+        #SendOrder(symbol, abs(Qty3),ClientID,LimitPrice3,CloseSide)
+        #SendOrder(symbol, abs(Qty4),ClientID,LimitPrice4,CloseSide)
 
 def OpenNewOrder(symbol,current_price,signal,last_row): 
+    CancelOpenLimitOrders(symbol)
     setup_params=GetSetupParam(symbol)  
     ClientID=setup_params['ClientOrderID']
     data_to_write(current_price,symbol)   
-    if(signal==1 or signal==-1) and  setup_params['AllowTrading']=='Y': # and False :
-        write_to_log('========================Open New Position==========================================')
+    if (IsPositionOpen(symbol)==False):
+        if(signal==1 or signal==-1) and  setup_params['AllowTrading']=='Y': # and False :
+            write_to_log('========================Open New Position==========================================')
+            
         
-       
-        if signal==1:
-            AskBid='Bid'
-            buysellind = 'buy'
-            correction_factor = 1 + setup_params['correction']
-        if signal==-1: 
-            AskBid='Ask'
-            buysellind ='sell'
-            correction_factor = 1 - setup_params['correction']
+            if signal==1:
+                AskBid='Bid'
+                buysellind = 'buy'
+                correction_factor = 1 + setup_params['correction']
+            if signal==-1: 
+                AskBid='Ask'
+                buysellind ='sell'
+                correction_factor = 1 - setup_params['correction']
 
-        current_price = getMidPrice(setup_params['Pair'],AskBid) 
-        invested_amount=setup_params['InvestAmt']
-        #invested_amount = invest_based_on_signal(buysellind, current_price, last_row["HighHigh"], last_row["LowLow"], invested_amount)
-        Qty=round(invested_amount/current_price,setup_params['QtyRounding'])    
-        orderPrice=round(current_price * correction_factor, setup_params['DecimalPlace'])
-        SendOrder(symbol, Qty,ClientID,orderPrice,buysellind,Optiontype='IC')
-        message = f"Order opened - {symbol}\nPrice: ${orderPrice}\nQty: {Qty}\nSignal: {buysellind}\ninvested_amount: {invested_amount}"
-        send_notification(message)  
+            current_price = getMidPrice(setup_params['Pair'],AskBid) 
+            invested_amount=setup_params['InvestAmt']
+            #invested_amount = invest_based_on_signal(buysellind, current_price, last_row["HighHigh"], last_row["LowLow"], invested_amount)
+            Qty=round(invested_amount/current_price,setup_params['QtyRounding'])    
+            orderPrice=round(current_price * correction_factor, setup_params['DecimalPlace'])
+            SendOrder(symbol, Qty,ClientID,orderPrice,buysellind,Optiontype='IC')
+            message = f"Order opened - {symbol}\nPrice: ${orderPrice}\nQty: {Qty}\nSignal: {buysellind}\ninvested_amount: {invested_amount}"
+            send_notification(message)  
         
                        
 def OpenCloseTrade(symbol):   
@@ -797,7 +814,7 @@ def OpenCloseTrade(symbol):
         setup_params=GetSetupParam(symbol)
         
         ClientID=setup_params['ClientOrderID']
-        
+        current_minute = datetime.datetime.now().minute
 
         #StopLossParam=MAGapPercnt #setup_params['StopLossPerc']
         signal,MAGapPercnt,last_row=  getBuySellCloseSignal(symbol)
@@ -808,14 +825,12 @@ def OpenCloseTrade(symbol):
         write_to_log(dfOP)
         
         IsPosOpen=IsPositionOpen(symbol)
-        current_minute = datetime.datetime.now().minute
-        if current_minute % 30 == 0:
-           send_notification(f"{symbol}:{signal}")
+      
 
         if IsPosOpen==False:
         #    signal,MAGapPercnt,last_row=  getBuySellCloseSignal(symbol)
             write_to_log("Canceling Limit Orders as No Orders Opened")   
-            CancelOpenLimitOrders(symbol)
+            
             OpenNewOrder(symbol,current_price,signal,last_row) 
 
         else:
@@ -873,7 +888,6 @@ def OpenCloseTrade(symbol):
                 OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost)  
 
             if(CanClosePosition):
-                CancelOpenLimitOrders(symbol)
                 CloseOrder(symbol,setup_params,OpenTradeQuantity,CloseSide,Correction,ClientID,AskBid)
  
             write_to_log('CanOpenLimitOrders,CanClosePosition,OpenTradeQuantity,average_cost  TrailPriceStopLoss: ')
@@ -928,9 +942,8 @@ def Tradejob():
         dfBal = RequestType('Bal')
         filtered_dfBal = (dfBal[dfBal['currency'] == 'GUSD']) 
         write_to_log(filtered_dfBal)
-    
-
-        
+ 
+         
         open_close_trade('ethgusdperp')
         open_close_trade('btcgusdperp')
         open_close_trade('solgusdperp')
