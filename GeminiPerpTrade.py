@@ -228,7 +228,7 @@ def getMidPrice(symbol,AskBid=''):
     df = getScriptPrice(symbol)
     row=df.iloc[-1]
     write_to_log(row,AskBid)
-    midPrice=(float(row['bid'])+float(row['ask']))/2
+    midPrice=(float(row['last'])+float(row['ask']))/2
 
     if AskBid=="Bid":
         midPrice=row['bid']
@@ -722,7 +722,7 @@ def CloseOrder(symbol,setup_params,OpenTradeQuantity,CloseSide,Correction,Client
     write_to_log(symbol,'========================Close Position==========================================')
     orderPrice =round(getMidPrice(setup_params['Pair'],AskBid)*(1+ Correction),setup_params['DecimalPlace'])
     write_to_log(symbol, " Close Order price and Qty",FormatNumber(orderPrice),abs(OpenTradeQuantity))
-    SendOrder(symbol, abs(OpenTradeQuantity),ClientID,orderPrice,CloseSide,Optiontype='LMT')
+    SendOrder(symbol, abs(OpenTradeQuantity),ClientID,orderPrice,CloseSide,Optiontype='IC')
     message = f"Close Order Place - {symbol}\nPrice: ${orderPrice}\nQty: {OpenTradeQuantity}\nSignal: {CloseSide}"
     send_notification(message)  
 
@@ -775,7 +775,7 @@ def OpenNewOrder(symbol,current_price,signal,last_row):
         #invested_amount = invest_based_on_signal(buysellind, current_price, last_row["HighHigh"], last_row["LowLow"], invested_amount)
         Qty=round(invested_amount/current_price,setup_params['QtyRounding'])    
         orderPrice=round(current_price * correction_factor, setup_params['DecimalPlace'])
-        SendOrder(symbol, Qty,ClientID,orderPrice,buysellind,Optiontype='LMT')
+        SendOrder(symbol, Qty,ClientID,orderPrice,buysellind,Optiontype='IC')
         message = f"Order opened - {symbol}\nPrice: ${orderPrice}\nQty: {Qty}\nSignal: {buysellind}\ninvested_amount: {invested_amount}"
         send_notification(message)  
         
@@ -926,14 +926,14 @@ def Tradejob():
         
         
         dfBal = RequestType('Bal')
-        filtered_dfBal = dfBal[dfBal['currency'] == 'GUSD']
+        filtered_dfBal = (dfBal[dfBal['currency'] == 'GUSD']) 
         write_to_log(filtered_dfBal)
     
 
-        if filtered_dfBal>100:
-            open_close_trade('ethgusdperp')
-            open_close_trade('btcgusdperp')
-            open_close_trade('solgusdperp')
+        
+        open_close_trade('ethgusdperp')
+        open_close_trade('btcgusdperp')
+        open_close_trade('solgusdperp')
          
         if current_time.minute % 15 == 0:
             clear_output(wait=True)
