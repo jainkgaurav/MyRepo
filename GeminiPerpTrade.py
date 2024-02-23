@@ -736,9 +736,9 @@ def OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current
         if current_price>average_cost:
            OrderPrice=current_price 
 
-        LimitPrice1=round(OrderPrice*(1+BuySellSign * 2 * MAGapPercnt),setup_params['DecimalPlace'])
-        LimitPrice2=round(OrderPrice*(1+BuySellSign * 3 * MAGapPercnt),setup_params['DecimalPlace'])
-        LimitPrice3=round(OrderPrice*(1+BuySellSign * 4 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice1=round(OrderPrice*(1+BuySellSign * 1.5 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice2=round(OrderPrice*(1+BuySellSign * 2.5 * MAGapPercnt),setup_params['DecimalPlace'])
+        LimitPrice3=round(OrderPrice*(1+BuySellSign * 3.5 * MAGapPercnt),setup_params['DecimalPlace'])
         LimitPrice4=round(OrderPrice*(1+BuySellSign * 5 * MAGapPercnt),setup_params['DecimalPlace'])
 
         Qty1=round(notional_value*(0.30)/current_price,setup_params['QtyRounding'])
@@ -775,7 +775,7 @@ def OpenNewOrder(symbol,current_price,signal,last_row):
         #invested_amount = invest_based_on_signal(buysellind, current_price, last_row["HighHigh"], last_row["LowLow"], invested_amount)
         Qty=round(invested_amount/current_price,setup_params['QtyRounding'])    
         orderPrice=round(current_price * correction_factor, setup_params['DecimalPlace'])
-        SendOrder(symbol, Qty,ClientID,orderPrice,buysellind,Optiontype='IC')
+        SendOrder(symbol, Qty,ClientID,orderPrice,buysellind,Optiontype='LMT')
         message = f"Order opened - {symbol}\nPrice: ${orderPrice}\nQty: {Qty}\nSignal: {buysellind}\ninvested_amount: {invested_amount}"
         send_notification(message)  
         
@@ -873,6 +873,7 @@ def OpenCloseTrade(symbol):
                 OpenLimitOrders(symbol,notional_value ,setup_params,CanClosePosition,current_price,ClientID,CloseSide,BuySellSign,MAGapPercnt,average_cost)  
 
             if(CanClosePosition):
+                CancelOpenLimitOrders(symbol)
                 CloseOrder(symbol,setup_params,OpenTradeQuantity,CloseSide,Correction,ClientID,AskBid)
  
             write_to_log('CanOpenLimitOrders,CanClosePosition,OpenTradeQuantity,average_cost  TrailPriceStopLoss: ')
@@ -923,19 +924,17 @@ def Tradejob():
         current_time = datetime.datetime.now()
         write_to_log('Current Time:', current_time) 
         
-        try:
-            dfBal = RequestType('Bal')
-            filtered_dfBal = dfBal[dfBal['currency'] == 'GUSD']
-            write_to_log(filtered_dfBal)
-        except Exception as e:
-            write_to_log(f'An exception occurred: {e}')
-
         
-        open_close_trade('ethgusdperp')
-        open_close_trade('btcgusdperp')
-        open_close_trade('solgusdperp')
-        #open_close_trade('pepegusdperp')
-        open_close_trade('maticgusdperp')
+        dfBal = RequestType('Bal')
+        filtered_dfBal = dfBal[dfBal['currency'] == 'GUSD']
+        write_to_log(filtered_dfBal)
+    
+
+        if filtered_dfBal>100:
+            open_close_trade('ethgusdperp')
+            open_close_trade('btcgusdperp')
+            open_close_trade('solgusdperp')
+         
         if current_time.minute % 15 == 0:
             clear_output(wait=True)
 
