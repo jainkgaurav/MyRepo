@@ -1,0 +1,95 @@
+
+def get_historical_prices(symbol, interval='15m', MinOrDayAgo='3 days',  limit=20):
+    end_date = datetime.now().strftime('%d-%b-%Y  %H:%M:%S')
+    start_date = (datetime.now() - timedelta(days=3)).strftime('%d-%b-%Y %H:%M:%S')
+    ##print(start_date,end_date)
+
+    candle= client.KLINE_INTERVAL_15MINUTE
+    data = client.futures_historical_klines(symbol=symbol, interval=interval, start_str= MinOrDayAgo+" ago UTC")
+
+    #print(data)
+    df = pd.DataFrame(data, columns=["timestamp", "OpenPrice", "HighPrice", "LowPrice", "ClosePrice", "volume", "close_time", "quote_asset_volume", "number_of_trades", "taker_buy_base_asset_volume", "taker_buy_quote_asset_volume", "ignore"])
+    df["timestamp"] = pd.to_datetime(df["timestamp"], unit="ms")
+    #df['DateTime'] = pd.to_datetime(df['timestamp'])
+    df = df.sort_values(by='timestamp', ascending=True)  # Sort by timestamp in descending order
+    df.set_index('timestamp', inplace=True)
+    pd.set_option('display.float_format', '{:.2f}'.format)
+
+    df['Open'] = pd.to_numeric(df['OpenPrice'])
+    df['High'] = pd.to_numeric(df['HighPrice'])
+    df['Low'] = pd.to_numeric(df['LowPrice'])
+    df['Close'] = pd.to_numeric(df['ClosePrice'])
+    pd.set_option('display.float_format', '{:.2f}'.format)
+    df['IsGreen'] = np.where(df['Open'] < df['Close'], 'G', 'R') 
+    #df=BinanceDataEx(df)
+    df["HighHigh"] = df['High'].max()
+    df["LowLow"] = df['Low'].min()
+
+    df["HHCurr"] = df['High'].rolling(window=200).max()
+    df["LLCurr"] = df['Low'].rolling(window=200).min()
+
+   
+
+    df["MA200"] = df['Close'].rolling(window=200).mean()
+    
+    df["MA20"] = df['Close'].rolling(window=20).mean()
+    df["MA5"] = df['Close'].rolling(window=5).mean()
+ 
+    return df
+	
+def getHistoryInfo(symbol):
+    		SLRate=.0225
+    		TPRate=.045
+		
+        if symbol.endswith("USDT")==False  :
+           return
+
+        price=currPrice(symbol)
+         
+        dfHist=get_historical_prices(symbol,interval='1h',MinOrDayAgo="10 days", limit=250)
+        dfHist["MA9"] = dfHist['Close'].rolling(window=9).mean()
+        last_row=dfHist.iloc[-2]
+        curr_row=dfHist.iloc[-1]
+        MAClose=curr_row["MA20"]
+     
+        rsi=curr_row["RSI"]
+        nthLastRow=dfHist.iloc[-20]
+        nthHH=nthLastRow['HHCurr']
+        nthLL=nthLastRow['LLCurr']
+         
+ 
+        for n in range(100, 9, -1):
+            Gap=(1+n/100)
+        
+            if nthHH/nthLL>Gap and price/nthHH>1.01  and price/nthHH<1.013  and curr_row["Open"]<price and curr_row["IsGreen"]=="G":
+                BT.insert_or_update_trade_entry( symbol, price,Side="Buy",Strategy=f"1hSRBreakOut20C", Gap=f"GAP:{str(Gap)}") 
+            if nthHH/nthLL>Gap and  nthLL/price>1.01 and  nthLL/price<1.013 and curr_row["Open"]>price and curr_row["IsGreen"]=="R":
+                BT.insert_or_update_trade_entry( symbol, price,Side="Sell",Strategy=f"1hSRBreakOut20C", Gap=f"GAP:{str(Gap)}")     
+ 
+
+
+        if HH/LL>1.04:
+            consecutive = 0
+            for n in range(5,50):  # Iterate over window sizes from 15 to 5
+                nrow = dfHist.iloc[-n]
+                if nrow["Low"] > nrow["MA20"] and  curr_row["MA5"]<curr_row["MA9"] :
+                    consecutive += 1
+                else:
+                    if  consecutive >= 15 :
+                        BT.insert_or_update_trade_entry( symbol, price,Side="Sell",Strategy=f"STG2",Gap=f"{str(consecutive)}") 
+                        consecutive=0
+                        break
+                    consecutive = 0  # Reset counter if MA20 crosses above the threshold
+
+            consecutive = 0
+            for n in range(5,50): 
+                nrow = dfHist.iloc[-n]
+                if nrow["High"] < nrow["MA20"] and curr_row["MA5"]>curr_row["MA9"]:  
+                    consecutive += 1
+                else:
+                    if  consecutive >= 15  :
+                        BT.insert_or_update_trade_entry( symbol, price,Side="Buy",Strategy=f"STG2",Gap=f"{str(consecutive)}")    
+                        consecutive=0
+                        break
+                    consecutive = 0  # Reset counter if MA20 crosses above the threshold
+
