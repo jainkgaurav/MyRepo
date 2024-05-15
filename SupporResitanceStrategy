@@ -92,4 +92,50 @@ def getHistoryInfo(symbol):
                         consecutive=0
                         break
                     consecutive = 0  # Reset counter if MA20 crosses above the threshold
+import pandas as pd
 
+def find_support_resistance(data, window_size, min_touches):
+    """
+    Find the most common support and resistance levels from daily OHLC data.
+    
+    Args:
+        data (pandas.DataFrame): Daily OHLC data with columns 'Open', 'High', 'Low', 'Close'.
+        window_size (int): Size of the rolling window.
+        min_touches (int): Minimum number of touches required to consider a level as support/resistance.
+        
+    Returns:
+        dict: A dictionary with the most common support and resistance levels as keys and their frequencies as values.
+    """
+    support_resistance = {}
+    
+    for i in range(len(data) - window_size + 1):
+        window = data.iloc[i:i+window_size]
+        highs = window['High'].tolist()
+        lows = window['Low'].tolist()
+        
+        # Find local highs and lows
+        local_highs = [highs[j] for j in range(1, len(highs)-1) if highs[j] >= highs[j-1] and highs[j] >= highs[j+1]]
+        local_lows = [lows[j] for j in range(1, len(lows)-1) if lows[j] <= lows[j-1] and lows[j] <= lows[j+1]]
+        
+        # Count touches at each level
+        level_touches = {}
+        for high in local_highs:
+            level_touches[high] = level_touches.get(high, 0) + 1
+        for low in local_lows:
+            level_touches[low] = level_touches.get(low, 0) + 1
+        
+        # Store potential support/resistance levels
+        for level, touches in level_touches.items():
+            if touches >= min_touches:
+                support_resistance[level] = support_resistance.get(level, 0) + 1
+    
+    # Sort by frequency and return the most common levels
+    return dict(sorted(support_resistance.items(), key=lambda x: x[1], reverse=True))
+
+# Example usage
+data = pd.read_csv('ohlc_data.csv', parse_dates=['Date'], index_col='Date')
+window_size = 20
+min_touches = 3
+
+common_levels = find_support_resistance(data, window_size, min_touches)
+print(common_levels)
